@@ -8,7 +8,9 @@ using StardewValley.Objects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Find_Item.Utilities;
+using Find_Item.Config;
 
 namespace Find_Item
 {
@@ -214,10 +216,18 @@ namespace Find_Item
         {
             if (key == Keys.Escape && readyToClose)
                 this.exitThisMenu();
-            else if (key == Keys.F) // Thêm phím tắt F để kích hoạt Find
+            else if (ModEntry.Config != null && key.ToString() == ModEntry.Config.QuickSearchKey.ToString())
             {
                 this.exitThisMenu();
                 DrawPathToChests();
+            }
+            // Update hide path key handler to use config
+            else if (ModEntry.Config != null && key.ToString() == ModEntry.Config.HidePathKey.ToString())
+            {
+                ModEntry.shouldDraw = false;
+                ModEntry.paths.Clear();
+                ModEntry.pathColors.Clear();
+                Game1.showGlobalMessage("Path hidden"); // Optional feedback
             }
         }
 
@@ -502,6 +512,17 @@ namespace Find_Item
             if (ModEntry.paths.Count > 0)
             {
                 Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} location(s) in {currentLocation.Name}");
+                
+                // Only auto-hide if enabled in config
+                if (ModEntry.Config.AutoHidePaths)
+                {
+                    Task.Delay(ModEntry.Config.AutoHideDelay * 1000).ContinueWith(_ => 
+                    {
+                        ModEntry.shouldDraw = false;
+                        ModEntry.paths.Clear();
+                        ModEntry.pathColors.Clear();
+                    });
+                }
             }
             else
             {

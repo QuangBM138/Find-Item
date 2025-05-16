@@ -9,16 +9,22 @@ using StardewValley.Objects;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-
+using Find_Item.Config;
+using Find_Item.Framework;
 namespace Find_Item
 {
     public class ModEntry : Mod
     {
-
         public static Dictionary<List<Vector2>, Color> pathColors = new Dictionary<List<Vector2>, Color>();
         public static List<List<Vector2>> paths = new List<List<Vector2>>();
         private Texture2D? tileHighlight;
         public static bool shouldDraw = false;
+
+        // Thay đổi từ private sang public static để có thể truy cập từ ItemDetailMenu
+        public static ModConfig? Config { get; private set; }
+        private IGenericModConfigMenuApi? ConfigMenu;
+
+        private List<ItemSubject> subjects = new List<ItemSubject>();
 
         // Thêm method để vẽ paths trong RenderedWorld event:
         private void RenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -51,43 +57,61 @@ namespace Find_Item
             }
         }
 
-        private List<ItemSubject> subjects = new List<ItemSubject>();
-
         public override void Entry(IModHelper helper)
         {
+            // Load config
+            Config = helper.ReadConfig<ModConfig>();
+
+            // Original initialization code...
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
-            // Replace the problematic line with Path.Combine for cross-platform compatibility
             this.tileHighlight = helper.ModContent.Load<Texture2D>(Path.Combine("assets", "tileColor.png"));
             helper.Events.Display.RenderedWorld += RenderedWorld;
             helper.Events.Player.Warped += ChangedLocation;
+            
+            // Register for GameLaunched event to initialize GMCM integration after all mods are loaded
+            helper.Events.GameLoop.GameLaunched += (sender, e) =>
+            {
+                // Add Generic Mod Config Menu integration
+                ConfigMenu = this.Helper.ModRegistry.GetApi<IGenericModConfigMenuApi>("spacechase0.GenericModConfigMenu");
+                if (ConfigMenu != null)
+                {
+                    var configMenuIntegration = new GenericModConfigMenuIntegration(this.ModManifest, ConfigMenu, Config, this.Helper);
+                    configMenuIntegration.Register();
+                }
+            };
         }
 
         private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
         {
-            // Only run when a player is in the world.
-            if (!Context.IsWorldReady)
+            // Only run when a player is in the world and mod is enabled
+            if (!Context.IsWorldReady || !Config.ModEnabled)
                 return;
 
-            // Check if F2 was pressed.
-            if (e.Button == SButton.F2)
+            // Toggle mod if toggle key is pressed
+            if (e.Button == Config.ToggleKey && Config.ToggleKey != SButton.None)
             {
-                // Gather items from the player's inventory and storages.
-                List<Item> items = this.GetAllOwnedItems();
+                Config.ModEnabled = !Config.ModEnabled;
+                this.Helper.WriteConfig(Config);
+                Game1.showGlobalMessage($"Find Item mod {(Config.ModEnabled ? "enabled" : "disabled")}");
+                return;
+            }
 
-                // Remove duplicate items based on DisplayName.
+            // Check if search key was pressed
+            if (e.Button == Config.SearchKey)
+            {
+                // Original search menu code...
+                List<Item> items = this.GetAllOwnedItems();
                 List<Item> uniqueItems = items
                     .GroupBy(item => item.DisplayName)
                     .Select(g => g.First())
                     .ToList();
 
-                // Wrap these into our ItemSubject type.
                 this.subjects = new List<ItemSubject>();
                 foreach (Item item in uniqueItems)
                 {
                     this.subjects.Add(new ItemSubject(item));
                 }
 
-                // Open our custom search menu.
                 Game1.activeClickableMenu = new ItemSearchMenu(this.subjects, this.OnResultSelected);
             }
         }

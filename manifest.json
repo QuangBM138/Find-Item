@@ -1,10 +1,16 @@
 {
-  "Name": "Find Item Mod",
+  "Name": "Find Item",
   "Author": "ogahalo00",
   "Version": "1.0.0",
-  "Description": "Mod cho phép tìm kiếm thông tin về items trong game.",
+  "Description": "Helps find items in chests and inventories",
   "UniqueID": "ogahlo00.Find_Item",
   "EntryDll": "Find_Item.dll",
-  "MinimumApiVersion": "3.0.0",
-  "UpdateKeys": [ "GitHub:QuangBM138/Find-Item" ]
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": [ "GitHub:QuangBM138/Find-Item" ],
+  "Dependencies": [
+    {
+      "UniqueID": "spacechase0.GenericModConfigMenu",
+      "IsRequired": false
+    }
+  ]
 }

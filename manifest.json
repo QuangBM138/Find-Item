@@ -1,0 +1,9 @@
+{
+  "Name": "Find Item Mod",
+  "Author": "ogahalo00",
+  "Version": "1.0.0",
+  "Description": "Mod cho phép tìm kiếm thông tin về items trong game.",
+  "UniqueID": "ogahlo00.Find_Item",
+  "EntryDll": "Find_Item.dll",
+  "MinimumApiVersion": "3.0.0"
+}

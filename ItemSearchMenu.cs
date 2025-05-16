@@ -18,8 +18,13 @@ namespace Find_Item
         private List<ItemSubject> FilteredSubjects;
         private TextBox SearchBox;
         private Action<Item> OnSelect;
-        private int scrollOffset = 0;
+        private int targetScrollOffset = 0;
+        private float smoothScrollOffset = 0;
         private const int ItemHeight = 40;
+
+        // New fields for dragging scroll.
+        private bool isDraggingScroll = false;
+        private int lastDragY = 0;
 
         // Add an additional parameter (with a default empty string) to the constructor.
         public ItemSearchMenu(List<ItemSubject> subjects, Action<Item> onSelect, string initialQuery = "")
@@ -61,7 +66,7 @@ namespace Find_Item
             int startY = this.SearchBox.Y + this.SearchBox.Height + 10;
             for (int i = 0; i < this.FilteredSubjects.Count; i++)
             {
-                Rectangle r = new Rectangle(this.xPositionOnScreen + 20, startY + i * ItemHeight - scrollOffset, this.width - 40, ItemHeight);
+                Rectangle r = new Rectangle(this.xPositionOnScreen + 20, startY + i * ItemHeight - (int)smoothScrollOffset, this.width - 40, ItemHeight);
                 if (r.Contains(x, y))
                 {
                     this.OnSelect(this.FilteredSubjects[i].Item);
@@ -72,14 +77,46 @@ namespace Find_Item
             base.receiveLeftClick(x, y, playSound);
         }
 
+        // New override to handle drag scrolling.
+        public override void leftClickHeld(int x, int y)
+        {
+            int listStartY = this.SearchBox.Y + this.SearchBox.Height + 10;
+            Rectangle scrollRect = new Rectangle(this.xPositionOnScreen + 20, listStartY, this.width - 40, this.height - (listStartY - this.yPositionOnScreen));
+            if (scrollRect.Contains(x, y))
+            {
+                if (!isDraggingScroll)
+                {
+                    isDraggingScroll = true;
+                    lastDragY = y;
+                }
+                else
+                {
+                    int delta = y - lastDragY;
+                    lastDragY = y;
+                    int totalContentHeight = this.FilteredSubjects.Count * ItemHeight;
+                    int visibleHeight = this.height - ((this.SearchBox.Y + this.SearchBox.Height + 10) - this.yPositionOnScreen);
+                    int maxScroll = Math.Max(0, totalContentHeight - visibleHeight);
+                    targetScrollOffset = Math.Max(0, Math.Min(targetScrollOffset - delta, maxScroll));
+                }
+            }
+            base.leftClickHeld(x, y);
+        }
+
+        public override void releaseLeftClick(int x, int y)
+        {
+            isDraggingScroll = false;
+            base.releaseLeftClick(x, y);
+        }
+
         public override void receiveScrollWheelAction(int direction)
         {
             // Compute total content height and visible height.
             int totalContentHeight = this.FilteredSubjects.Count * ItemHeight;
             int visibleHeight = this.height - ((this.SearchBox.Y + this.SearchBox.Height + 10) - this.yPositionOnScreen);
             int maxScroll = Math.Max(0, totalContentHeight - visibleHeight);
-            // Clamp scrollOffset within [0, maxScroll].
-            this.scrollOffset = Math.Max(0, Math.Min(this.scrollOffset - direction * 10, maxScroll));
+            // Use a lower scroll increment (2 instead of 5) for even slower scrolling.
+            int scrollIncrement = 2;
+            targetScrollOffset = Math.Max(0, Math.Min(targetScrollOffset - direction * scrollIncrement, maxScroll));
         }
 
         public override void update(GameTime time)
@@ -94,11 +131,14 @@ namespace Find_Item
             else
                 this.FilteredSubjects = this.AllSubjects.Where(s => s.Name.ToLowerInvariant().Contains(query)).ToList();
 
-            // Clamp scrollOffset based on updated filtered items.
+            // Clamp targetScrollOffset based on updated filtered items.
             int totalContentHeight = this.FilteredSubjects.Count * ItemHeight;
             int visibleHeight = this.height - ((this.SearchBox.Y + this.SearchBox.Height + 10) - this.yPositionOnScreen);
             int maxScroll = Math.Max(0, totalContentHeight - visibleHeight);
-            this.scrollOffset = Math.Max(0, Math.Min(this.scrollOffset, maxScroll));
+            targetScrollOffset = Math.Max(0, Math.Min(targetScrollOffset, maxScroll));
+
+            // Smoothly interpolate the scroll offset for a smooth scrolling effect.
+            smoothScrollOffset = MathHelper.Lerp(smoothScrollOffset, targetScrollOffset, 0.1f);
         }
 
         public override void draw(SpriteBatch b)
@@ -124,7 +164,12 @@ namespace Find_Item
 
             // Prepare to clip the list of filtered items.
             int listStartY = this.SearchBox.Y + this.SearchBox.Height + 10;
-            Rectangle clipRect = new Rectangle(this.xPositionOnScreen + 20, listStartY, this.width - 40, this.height - (listStartY - this.yPositionOnScreen));
+            // The clipping rectangle covers the remaining area exactly without extra margin.
+            Rectangle clipRect = new Rectangle(
+                this.xPositionOnScreen + 20,
+                listStartY,
+                this.width - 40,
+                this.height - (listStartY - this.yPositionOnScreen));
 
             // End the current sprite batch to set the scissor rectangle.
             b.End();
@@ -132,11 +177,17 @@ namespace Find_Item
             b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, rState);
             Game1.graphics.GraphicsDevice.ScissorRectangle = clipRect;
 
-            // Draw the list of filtered items inside the clip.
+            int mouseX = Game1.getMouseX();
+            int mouseY = Game1.getMouseY();
             for (int i = 0; i < this.FilteredSubjects.Count; i++)
             {
-                Vector2 pos = new Vector2(this.xPositionOnScreen + 20, listStartY + i * ItemHeight - scrollOffset);
-                b.DrawString(Game1.smallFont, this.FilteredSubjects[i].Name, pos, Color.White);
+                Rectangle r = new Rectangle(this.xPositionOnScreen + 20, listStartY + i * ItemHeight - (int)smoothScrollOffset, this.width - 40, ItemHeight);
+                bool hovered = r.Contains(mouseX, mouseY);
+                // Hover color is white; default text color is black.
+                Color textColor = hovered ? Color.White : Color.Black;
+                Vector2 textSize = Game1.smallFont.MeasureString(this.FilteredSubjects[i].Name);
+                Vector2 pos = new Vector2(r.X, r.Y + (r.Height - textSize.Y) / 2);
+                b.DrawString(Game1.smallFont, this.FilteredSubjects[i].Name, pos, textColor);
             }
 
             b.End();
@@ -146,6 +197,7 @@ namespace Find_Item
             base.draw(b);
             this.drawMouse(b);
         }
+
         public override void receiveKeyPress(Keys key)
         {
             // Only exit if Escape is pressed; allow all other keys (e.g., "e") to be processed by the textbox.

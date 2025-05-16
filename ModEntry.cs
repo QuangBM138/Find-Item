@@ -28,9 +28,15 @@ namespace Find_Item
                 // Gather items from the player's inventory and storages.
                 List<Item> items = this.GetAllOwnedItems();
 
+                // Remove duplicate items based on DisplayName.
+                List<Item> uniqueItems = items
+                    .GroupBy(item => item.DisplayName)
+                    .Select(g => g.First())
+                    .ToList();
+
                 // Wrap these into our ItemSubject type.
                 List<ItemSubject> subjects = new List<ItemSubject>();
-                foreach (Item item in items)
+                foreach (Item item in uniqueItems)
                 {
                     subjects.Add(new ItemSubject(item));
                 }
@@ -42,8 +48,8 @@ namespace Find_Item
 
         private void OnResultSelected(Item item)
         {
-            // For demonstration, show a HUD message with the selected item's name.
-            Game1.addHUDMessage(new HUDMessage($"Selected item: {item.DisplayName}", 3));
+            // Open the detail menu with the selected item.
+            Game1.activeClickableMenu = new ItemDetailMenu(item);
         }
 
         /// <summary>
@@ -62,23 +68,30 @@ namespace Find_Item
                 // Check each object in the location.
                 foreach (var obj in location.objects.Values)
                 {
-                    if (obj is Chest chest && chest.playerChest.Value)
+                    if (obj is Chest chest)
                     {
-                        // Add items from the chest.
-                        items.AddRange(chest.GetItemsForPlayer(Game1.player.UniqueMultiplayerID));
+                        // Lấy items từ tất cả các rương, không chỉ của người chơi hiện tại
+                        if (chest.Items != null)  // Sử dụng Items thay vì items
+                        {
+                            items.AddRange(chest.Items.Where(item => item != null));
+                        }
                     }
                 }
 
                 // Also, if the location is a farmhouse (or island farmhouse), add fridge contents.
                 if (location is StardewValley.Locations.FarmHouse house)
                 {
-                    if (house.fridge.Value != null)
-                        items.AddRange(house.fridge.Value.GetItemsForPlayer(Game1.player.UniqueMultiplayerID));
+                    if (house.fridge.Value != null && house.fridge.Value.Items != null)  // Sử dụng Items
+                    {
+                        items.AddRange(house.fridge.Value.Items.Where(item => item != null));
+                    }
                 }
                 else if (location is StardewValley.Locations.IslandFarmHouse islandHouse)
                 {
-                    if (islandHouse.fridge.Value != null)
-                        items.AddRange(islandHouse.fridge.Value.GetItemsForPlayer(Game1.player.UniqueMultiplayerID));
+                    if (islandHouse.fridge.Value != null && islandHouse.fridge.Value.Items != null)  // Sử dụng Items
+                    {
+                        items.AddRange(islandHouse.fridge.Value.Items.Where(item => item != null));
+                    }
                 }
             }
 

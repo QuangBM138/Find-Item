@@ -8,6 +8,7 @@ using StardewValley.Menus;
 using StardewValley.Objects;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace Find_Item
 {
@@ -50,12 +51,13 @@ namespace Find_Item
             }
         }
 
-        private List<ItemSubject> subjects;
+        private List<ItemSubject> subjects = new List<ItemSubject>();
 
         public override void Entry(IModHelper helper)
         {
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
-            this.tileHighlight = helper.ModContent.Load<Texture2D>("/assets/tileColor.png");
+            // Replace the problematic line with Path.Combine for cross-platform compatibility
+            this.tileHighlight = helper.ModContent.Load<Texture2D>(Path.Combine("assets", "tileColor.png"));
             helper.Events.Display.RenderedWorld += RenderedWorld;
             helper.Events.Player.Warped += ChangedLocation;
         }

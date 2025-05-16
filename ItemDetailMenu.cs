@@ -8,6 +8,7 @@ using StardewValley.Objects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Find_Item.Utilities;
 
 namespace Find_Item
 {
@@ -116,15 +117,24 @@ namespace Find_Item
             string descLine = $"Description: {this.description}";
             string locationHeader = "Locations:";
             //string obtainLine = this.obtainInfo;
-            
+
             // Starting position with a larger margin.
             Vector2 textPos = new Vector2(this.xPositionOnScreen + 40, this.yPositionOnScreen + 40);
             Color textColor = Color.Black;
             Color headerColor = new Color(85, 85, 85); // Slightly darker for headers
-            
-            // Draw each section
-            b.DrawString(Game1.smallFont, title, textPos, textColor);
-            textPos.Y += Game1.smallFont.MeasureString(title).Y + 15;
+
+            // Draw item icon first
+            float itemScale = 2f; // Make the icon a bit larger
+            Vector2 iconPos = new Vector2(textPos.X, textPos.Y);
+
+            // Use ItemDrawHelper instead of direct drawing logic
+            ItemDrawHelper.DrawItemIcon(b, this.item, iconPos, itemScale);
+
+            // Draw title text after icon with offset - using GetIconWidth from helper
+            float iconWidth = ItemDrawHelper.GetIconWidth(itemScale);
+            Vector2 titlePos = new Vector2(textPos.X + iconWidth, textPos.Y);
+            b.DrawString(Game1.smallFont, $"Item: {this.item.DisplayName}", titlePos, textColor);
+            textPos.Y += Math.Max(16 * itemScale, Game1.smallFont.MeasureString(title).Y) + 15;
 
             b.DrawString(Game1.smallFont, descLine, textPos, textColor);
             textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 30;
@@ -149,7 +159,7 @@ namespace Find_Item
             //textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 30;
 
             // Draw close button
-            b.Draw(Game1.mouseCursors, 
+            b.Draw(Game1.mouseCursors,
                 new Vector2(this.closeButton.X, this.closeButton.Y),
                 new Rectangle(337, 494, 9, 9),  // Texture region for the X button
                 Color.White,
@@ -180,8 +190,8 @@ namespace Find_Item
             );
             b.DrawString(
                 Game1.dialogueFont,  // Use larger dialogue font instead of smallFont
-                FindButtonText, 
-                findTextPos, 
+                FindButtonText,
+                findTextPos,
                 Color.Black
             );
 
@@ -217,7 +227,7 @@ namespace Find_Item
             {
                 if (playSound)
                     Game1.playSound("bigDeSelect");
-                
+
                 // Return to search menu
                 Game1.activeClickableMenu = new ItemSearchMenu(this.allSubjects, this.onSelect);
                 return;
@@ -226,18 +236,18 @@ namespace Find_Item
             {
                 if (playSound)
                     Game1.playSound("select");
-                
+
                 // Close menu first
                 this.exitThisMenu();
-                
+
                 // Then draw paths to chests
                 DrawPathToChests();
                 return;
             }
-            
-            // If clicked outside buttons then exit as usual
-            this.exitThisMenu();
-            base.receiveLeftClick(x, y, playSound);
+
+            //// If clicked outside buttons then exit as usual
+            //this.exitThisMenu();
+            //base.receiveLeftClick(x, y, playSound);
         }
 
         public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
@@ -377,13 +387,13 @@ namespace Find_Item
                 return false;
 
             // Compare basic properties
-            bool basicMatch = item1.Name == item2.Name && 
+            bool basicMatch = item1.Name == item2.Name &&
                              item1.DisplayName == item2.DisplayName;
 
             // Compare detailed properties for StardewValley.Object
             if (item1 is StardewValley.Object obj1 && item2 is StardewValley.Object obj2)
             {
-                return basicMatch && 
+                return basicMatch &&
                        obj1.ParentSheetIndex == obj2.ParentSheetIndex &&
                        obj1.Quality == obj2.Quality;  // Added comparison for Quality
             }

@@ -8,6 +8,7 @@ using StardewValley.Menus;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Find_Item.Utilities;
 
 namespace Find_Item
 {
@@ -22,7 +23,7 @@ namespace Find_Item
         private Action<Item> OnSelect;
         private int targetScrollOffset = 0;
         private float smoothScrollOffset = 0;
-        private const int ItemHeight = 40;
+        private const int ItemHeight = 100; // Increased from 40
         private const string SearchHintText = "Type to search...";
 
         // New fields for dragging scroll.
@@ -182,15 +183,44 @@ namespace Find_Item
 
             int mouseX = Game1.getMouseX();
             int mouseY = Game1.getMouseY();
+
             for (int i = 0; i < this.FilteredSubjects.Count; i++)
             {
                 Rectangle r = new Rectangle(this.xPositionOnScreen + 20, listStartY + i * ItemHeight - (int)smoothScrollOffset, this.width - 40, ItemHeight);
                 bool hovered = r.Contains(mouseX, mouseY);
-                // Hover color is white; default text color is black.
-                Color textColor = hovered ? Color.White : Color.Black;
+
+                // Draw hover background effect
+                if (hovered)
+                {
+                    // Draw semi-transparent white background for hover effect
+                    b.Draw(Game1.staminaRect, r, Color.White * 0.15f);
+                }
+
+                // Draw item icon using ItemDrawHelper with larger scale
+                Item currentItem = this.FilteredSubjects[i].Item;
+                float itemScale = 2.5f; // Increased from 1.5f
+                Vector2 iconPos = new Vector2(r.X, r.Y + (r.Height - 16 * itemScale) / 2);
+                ItemDrawHelper.DrawItemIcon(b, currentItem, iconPos, itemScale);
+
+                // Get icon width using helper
+                float iconWidth = ItemDrawHelper.GetIconWidth(itemScale);
                 Vector2 textSize = Game1.smallFont.MeasureString(this.FilteredSubjects[i].Name);
-                Vector2 pos = new Vector2(r.X, r.Y + (r.Height - textSize.Y) / 2);
-                b.DrawString(Game1.smallFont, this.FilteredSubjects[i].Name, pos, textColor);
+                Vector2 pos = new Vector2(r.X + iconWidth, r.Y + (r.Height - textSize.Y) / 2);
+
+                // Draw item name with hover effect
+                Color textColor = hovered ? Color.White : Color.Black;
+                float textAlpha = hovered ? 1f : 0.9f; // Slight fade for non-hovered items
+                b.DrawString(Game1.smallFont, this.FilteredSubjects[i].Name, pos, textColor * textAlpha);
+
+                // Draw separator line between items (except for the last item)
+                if (i < this.FilteredSubjects.Count - 1)
+                {
+                    int lineY = r.Bottom - 1;
+                    Color lineColor = Color.Gray * 0.3f; // Light gray, semi-transparent line
+                    b.Draw(Game1.staminaRect,
+                        new Rectangle(r.X, lineY, r.Width, 1),
+                        lineColor);
+                }
             }
 
             b.End();

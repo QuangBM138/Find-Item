@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Find_Item")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c912c8076b4ec8675a44ece456eb43f10455140c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f077c080cfd9e769949ccf79cdcb8eeb1a06815c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Find_Item")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Find_Item")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

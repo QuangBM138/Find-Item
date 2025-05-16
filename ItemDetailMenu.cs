@@ -24,7 +24,12 @@ namespace Find_Item
         // Renamed field to hide parent's readyToClose member.
         private new bool readyToClose = false;
 
-        public ItemDetailMenu(Item item)
+        private Rectangle closeButton;
+        private Rectangle showPathButton;
+        private List<ItemSubject> allSubjects;
+        private Action<Item> onSelect;
+
+        public ItemDetailMenu(Item item, List<ItemSubject> subjects, Action<Item> onSelect)
             : base(
                   Game1.viewport.Width / 8,  // xPositionOnScreen (moved further left)
                   Game1.viewport.Height / 8, // yPositionOnScreen (moved further down)
@@ -33,11 +38,42 @@ namespace Find_Item
                   true)
         {
             this.item = item;
+            this.allSubjects = subjects;
+            this.onSelect = onSelect;
             // Use the item's description if available.
-            this.description = (item as StardewValley.Object)?.getDescription() ?? "No description available.";
+            this.description = GetItemDescription(item);
             // Determine the current location of the item.
-            this.locationInfo = "Location: " + DetermineLocation(item);
-            //this.obtainInfo = "How to obtain: Typically purchased from shops, dropped as loot, or crafted/farmed in-game.";
+            this.locationInfo = DetermineLocation(item);
+
+            // Create close button in the top-right corner
+            this.closeButton = new Rectangle(
+                this.xPositionOnScreen + this.width - 48,  // X position
+                this.yPositionOnScreen + 8,                // Y position
+                36,                                        // Width
+                36                                         // Height
+            );
+
+            // Create show path button below close button
+            this.showPathButton = new Rectangle(
+                this.xPositionOnScreen + this.width - 48,  // Same X as close button
+                this.yPositionOnScreen + 50,              // Below close button
+                36,                                       // Width
+                36                                        // Height
+            );
+        }
+
+        private string GetItemDescription(Item item)
+        {
+            if (item == null)
+                return "No description available.";
+
+            // Kiểm tra từng loại item khác nhau
+            if (item is StardewValley.Object obj)
+                return obj.getDescription();
+            else if (item is Tool tool)
+                return tool.Description;  // Tools có property Description
+            else
+                return item.getDescription() ?? "No description available.";
         }
 
         public override void update(GameTime time)
@@ -101,6 +137,18 @@ namespace Find_Item
             textPos.Y += 15; // Extra spacing after locations
             //b.DrawString(Game1.smallFont, obtainLine, textPos, textColor);
             //textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 30;
+
+            // Draw close button
+            b.Draw(Game1.mouseCursors, 
+                new Vector2(this.closeButton.X, this.closeButton.Y),
+                new Rectangle(337, 494, 9, 9),  // Texture region for the X button
+                Color.White,
+                0f,
+                Vector2.Zero,
+                4f,                            // Larger scale for better visibility
+                SpriteEffects.None,
+                1f);
+
             // Draw the mouse cursor.
             this.drawMouse(b);
         }
@@ -113,6 +161,17 @@ namespace Find_Item
 
         public override void receiveLeftClick(int x, int y, bool playSound = true)
         {
+            if (this.closeButton.Contains(x, y))
+            {
+                if (playSound)
+                    Game1.playSound("bigDeSelect");
+                
+                // Quay lại menu tìm kiếm
+                Game1.activeClickableMenu = new ItemSearchMenu(this.allSubjects, this.onSelect);
+                return;
+            }
+            
+            // Nếu click ngoài nút X thì thoát như cũ
             this.exitThisMenu();
             base.receiveLeftClick(x, y, playSound);
         }
@@ -125,28 +184,48 @@ namespace Find_Item
             List<string> locations = new List<string>();
             Dictionary<string, int> containerCounts = new Dictionary<string, int>();
 
-            // Check if the item is in the player's inventory and count occurrences
-            int inventoryCount = Game1.player.Items.Count(i => ItemsMatch(i, item));
-            if (inventoryCount > 0)
+            // Check player's inventory
+            var inventoryGroups = Game1.player.Items
+                .Where(i => ItemsMatch(i, item))
+                .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
+                .OrderBy(g => g.Key);
+
+            if (inventoryGroups.Any())
             {
-                locations.Add($"Player Inventory ({inventoryCount} items)");
+                var quantities = new List<string>();
+                foreach (var group in inventoryGroups)
+                {
+                    int total = group.Sum(i => i.Stack);
+                    string quality = GetQualityText(group.Key);
+                    quantities.Add($"{total} {quality}");
+                }
+                locations.Add($"Player Inventory ({string.Join(", ", quantities)})");
             }
 
-            // Search through all locations.
+            // Search through all locations
             foreach (GameLocation location in Game1.locations)
             {
-                // Check chests in the location.
                 foreach (var obj in location.objects.Values)
                 {
                     if (obj is Chest chest)
                     {
-                        // Count the number of matching items in each chest.
-                        int itemCount = chest.Items.Count(i => ItemsMatch(i, item));
-                        if (itemCount > 0)
+                        var chestGroups = chest.Items
+                            .Where(i => ItemsMatch(i, item))
+                            .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
+                            .OrderBy(g => g.Key);
+
+                        if (chestGroups.Any())
                         {
                             string containerKey = $"{chest.DisplayName} in {location.Name}";
-                            string locationText = $"{containerKey} ({itemCount} items)";
-                            
+                            var quantities = new List<string>();
+                            foreach (var group in chestGroups)
+                            {
+                                int total = group.Sum(i => i.Stack);
+                                string quality = GetQualityText(group.Key);
+                                quantities.Add($"{total} {quality}");
+                            }
+                            string locationText = $"{containerKey} ({string.Join(", ", quantities)})";
+
                             if (!containerCounts.ContainsKey(containerKey))
                             {
                                 containerCounts[containerKey] = 1;
@@ -165,15 +244,26 @@ namespace Find_Item
                     }
                 }
 
-                // Check farmhouse refrigerators.
+                // Check fridges with quality grouping
                 if (location is StardewValley.Locations.FarmHouse house)
                 {
                     if (house.fridge.Value != null && house.fridge.Value.Items != null)
                     {
-                        int fridgeCount = house.fridge.Value.Items.Count(i => ItemsMatch(i, item));
-                        if (fridgeCount > 0)
+                        var fridgeGroups = house.fridge.Value.Items
+                            .Where(i => ItemsMatch(i, item))
+                            .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
+                            .OrderBy(g => g.Key);
+
+                        if (fridgeGroups.Any())
                         {
-                            locations.Add($"Fridge in {location.Name} ({fridgeCount} items)");
+                            var quantities = new List<string>();
+                            foreach (var group in fridgeGroups)
+                            {
+                                int total = group.Sum(i => i.Stack);
+                                string quality = GetQualityText(group.Key);
+                                quantities.Add($"{total} {quality}");
+                            }
+                            locations.Add($"Fridge in {location.Name} ({string.Join(", ", quantities)})");
                         }
                     }
                 }
@@ -181,10 +271,21 @@ namespace Find_Item
                 {
                     if (islandHouse.fridge.Value != null && islandHouse.fridge.Value.Items != null)
                     {
-                        int fridgeCount = islandHouse.fridge.Value.Items.Count(i => ItemsMatch(i, item));
-                        if (fridgeCount > 0)
+                        var fridgeGroups = islandHouse.fridge.Value.Items
+                            .Where(i => ItemsMatch(i, item))
+                            .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
+                            .OrderBy(g => g.Key);
+
+                        if (fridgeGroups.Any())
                         {
-                            locations.Add($"Fridge in {location.Name} ({fridgeCount} items)");
+                            var quantities = new List<string>();
+                            foreach (var group in fridgeGroups)
+                            {
+                                int total = group.Sum(i => i.Stack);
+                                string quality = GetQualityText(group.Key);
+                                quantities.Add($"{total} {quality}");
+                            }
+                            locations.Add($"Fridge in {location.Name} ({string.Join(", ", quantities)})");
                         }
                     }
                 }
@@ -221,6 +322,21 @@ namespace Find_Item
                 return false;
 
             return basicMatch;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the item's quality.
+        /// </summary>
+        private string GetQualityText(int quality)
+        {
+            return quality switch
+            {
+                0 => "Normal",
+                1 => "Silver",
+                2 => "Gold",
+                4 => "Iridium",
+                _ => ""
+            };
         }
     }
 }

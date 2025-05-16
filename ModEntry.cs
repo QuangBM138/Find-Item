@@ -11,6 +11,8 @@ namespace Find_Item
 {
     public class ModEntry : Mod
     {
+        private List<ItemSubject> subjects;
+
         public override void Entry(IModHelper helper)
         {
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
@@ -35,21 +37,21 @@ namespace Find_Item
                     .ToList();
 
                 // Wrap these into our ItemSubject type.
-                List<ItemSubject> subjects = new List<ItemSubject>();
+                this.subjects = new List<ItemSubject>();
                 foreach (Item item in uniqueItems)
                 {
-                    subjects.Add(new ItemSubject(item));
+                    this.subjects.Add(new ItemSubject(item));
                 }
 
                 // Open our custom search menu.
-                Game1.activeClickableMenu = new ItemSearchMenu(subjects, this.OnResultSelected);
+                Game1.activeClickableMenu = new ItemSearchMenu(this.subjects, this.OnResultSelected);
             }
         }
 
         private void OnResultSelected(Item item)
         {
-            // Open the detail menu with the selected item.
-            Game1.activeClickableMenu = new ItemDetailMenu(item);
+            // Open the detail menu with the selected item and pass subjects for returning to search
+            Game1.activeClickableMenu = new ItemDetailMenu(item, this.subjects, this.OnResultSelected);
         }
 
         /// <summary>

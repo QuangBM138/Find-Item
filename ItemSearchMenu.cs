@@ -11,6 +11,8 @@ using System.Linq;
 
 namespace Find_Item
 {
+
+
     /// <summary>A simple search UI which mimics Lookup Anything’s search menu but only for items.</summary>
     public class ItemSearchMenu : IClickableMenu
     {
@@ -21,6 +23,7 @@ namespace Find_Item
         private int targetScrollOffset = 0;
         private float smoothScrollOffset = 0;
         private const int ItemHeight = 40;
+        private const string SearchHintText = "Type to search...";
 
         // New fields for dragging scroll.
         private bool isDraggingScroll = false;
@@ -193,6 +196,13 @@ namespace Find_Item
             b.End();
             b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
 
+            if (string.IsNullOrEmpty(this.SearchBox.Text))
+            {
+                // Draw hint text
+                Vector2 hintPos = new Vector2(this.SearchBox.X + 10, this.SearchBox.Y + 10);
+                b.DrawString(Game1.smallFont, SearchHintText, hintPos, Color.Gray * 0.6f);
+            }
+
             // Draw the upper-right close button.
             base.draw(b);
             this.drawMouse(b);
@@ -204,5 +214,7 @@ namespace Find_Item
             if (key == Keys.Escape)
                 this.exitThisMenu();
         }
+
+
     }
 }

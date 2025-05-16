@@ -1,4 +1,6 @@
 ﻿// ModEntry.cs
+using Microsoft.Xna.Framework; // Thêm để sử dụng Vector2 và Color
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -11,11 +13,51 @@ namespace Find_Item
 {
     public class ModEntry : Mod
     {
+
+        public static Dictionary<List<Vector2>, Color> pathColors = new Dictionary<List<Vector2>, Color>();
+        public static List<List<Vector2>> paths = new List<List<Vector2>>();
+        private Texture2D? tileHighlight;
+        public static bool shouldDraw = false;
+
+        // Thêm method để vẽ paths trong RenderedWorld event:
+        private void RenderedWorld(object? sender, RenderedWorldEventArgs e)
+        {
+            if (ModEntry.paths.Count > 0 && ModEntry.shouldDraw)
+            {
+                this.DrawPath(e, ModEntry.paths);
+            }
+        }
+
+        private void DrawPath(RenderedWorldEventArgs e, List<List<Vector2>> paths)
+        {
+            foreach (List<Vector2> path in paths)
+            {
+                foreach (Vector2 tile in path)
+                {
+                    Vector2 screenpos = Game1.GlobalToLocal(Game1.viewport, tile * 64f);
+                    e.SpriteBatch.Draw(this.tileHighlight, screenpos, pathColors[path]);
+                }
+            }
+        }
+
+        // Thêm event handler khi người chơi di chuyển sang location khác
+        private void ChangedLocation(object? sender, WarpedEventArgs e)
+        {
+            if (e.IsLocalPlayer)
+            {
+                paths.Clear();
+                shouldDraw = false;
+            }
+        }
+
         private List<ItemSubject> subjects;
 
         public override void Entry(IModHelper helper)
         {
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
+            this.tileHighlight = helper.ModContent.Load<Texture2D>("/assets/tileColor.png");
+            helper.Events.Display.RenderedWorld += RenderedWorld;
+            helper.Events.Player.Warped += ChangedLocation;
         }
 
         private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)

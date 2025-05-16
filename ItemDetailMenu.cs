@@ -204,6 +204,11 @@ namespace Find_Item
         {
             if (key == Keys.Escape && readyToClose)
                 this.exitThisMenu();
+            else if (key == Keys.F) // Thêm phím tắt F để kích hoạt Find
+            {
+                this.exitThisMenu();
+                DrawPathToChests();
+            }
         }
 
         public override void receiveLeftClick(int x, int y, bool playSound = true)
@@ -410,6 +415,14 @@ namespace Find_Item
         /// </summary>
         private void DrawPathToChests()
         {
+            //// Thêm cache cho đường đi
+            //if (ModEntry.paths.Count > 0)
+            //{
+            //    // Clear old paths only when finding new ones
+            //    ModEntry.paths.Clear();
+            //    ModEntry.pathColors.Clear();
+            //}
+
             // Check if item is in inventory first
             if (Game1.player.Items.Any(i => ItemsMatch(i, item)))
             {
@@ -418,95 +431,46 @@ namespace Find_Item
             }
 
             List<Vector2> chestLocations = new List<Vector2>();
-            bool foundItem = false;
-
-            // Get current player location
             GameLocation currentLocation = Game1.currentLocation;
-            if (currentLocation == null)
-                return;
 
-            // Find chests containing the item in current location
+            // Find all chests containing the item in current location
             foreach (var obj in currentLocation.objects.Pairs)
             {
-                if (obj.Value is Chest chest)
+                if (obj.Value is Chest chest && chest.Items.Any(i => ItemsMatch(i, item)))
                 {
-                    if (chest.Items.Any(i => ItemsMatch(i, item)))
-                    {
-                        chestLocations.Add(obj.Key);
-                        foundItem = true;
-                    }
+                    chestLocations.Add(obj.Key);
                 }
             }
 
-            // Also check fridge if in FarmHouse
+            // Check fridge if in FarmHouse
             if (currentLocation is StardewValley.Locations.FarmHouse house)
             {
-                if (house.fridge.Value?.Items != null && 
+                if (house.fridge.Value?.Items != null &&
                     house.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
                 {
                     chestLocations.Add(house.fridge.Value.TileLocation);
-                    foundItem = true;
                 }
             }
             else if (currentLocation is StardewValley.Locations.IslandFarmHouse islandHouse)
             {
-                if (islandHouse.fridge.Value?.Items != null && 
+                if (islandHouse.fridge.Value?.Items != null &&
                     islandHouse.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
                 {
                     chestLocations.Add(islandHouse.fridge.Value.TileLocation);
-                    foundItem = true;
                 }
             }
 
-            if (!foundItem)
+            if (chestLocations.Count == 0)
             {
                 // Get a list of other locations where the item exists
-                var otherLocations = new List<string>();
-                foreach (GameLocation location in Game1.locations)
-                {
-                    if (location == currentLocation)
-                        continue;
-
-                    bool hasItem = false;
-                    string locationName = location.Name;
-
-                    // Check chests
-                    foreach (var obj in location.objects.Values)
-                    {
-                        if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, item)))
-                        {
-                            hasItem = true;
-                            break;
-                        }
-                    }
-
-                    // Check fridges
-                    if (location is StardewValley.Locations.FarmHouse h)
-                    {
-                        if (h.fridge.Value?.Items != null && 
-                            h.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
-                        {
-                            hasItem = true;
-                        }
-                    }
-                    else if (location is StardewValley.Locations.IslandFarmHouse ih)
-                    {
-                        if (ih.fridge.Value?.Items != null && 
-                            ih.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
-                        {
-                            hasItem = true;
-                        }
-                    }
-
-                    if (hasItem)
-                    {
-                        otherLocations.Add(locationName);
-                    }
-                }
+                var otherLocations = Game1.locations
+                    .Where(loc => loc != currentLocation)
+                    .Where(loc => HasItemInLocation(loc, item))
+                    .Select(loc => loc.Name)
+                    .ToList();
 
                 if (otherLocations.Count > 0)
                 {
-                    // Format the message with found locations
                     string locationList = string.Join(", ", otherLocations);
                     Game1.showGlobalMessage($"{item.DisplayName} is not in {currentLocation.Name}, but can be found in: {locationList}");
                 }
@@ -517,67 +481,48 @@ namespace Find_Item
                 return;
             }
 
-            // Draw paths from player to each chest
+            // Find paths to all chests
             Vector2 playerPos = new Vector2(
-                (int)(Game1.player.Position.X / 64), // Convert pixel position to tile position
+                (int)(Game1.player.Position.X / 64),
                 (int)(Game1.player.Position.Y / 64)
             );
-            foreach (Vector2 chestPos in chestLocations)
-            {
-                // Calculate direction from player to chest
-                Vector2 direction = chestPos - playerPos;
-                float rotation = (float)Math.Atan2(direction.Y, direction.X);
-                
-                // Draw line of arrows from player to chest
-                float distance = Vector2.Distance(playerPos, chestPos);
-                int numArrows = Math.Max(1, (int)(distance / 2)); // One arrow every 2 tiles
-                
-                for (int i = 0; i < numArrows; i++)
-                {
-                    float t = i / (float)numArrows;
-                    Vector2 arrowPos = Vector2.Lerp(playerPos, chestPos, t);
-                    
-                    // Create arrow sprite
-                    currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(
-                        "LooseSprites\\Cursors",
-                        new Rectangle(395, 497, 3, 8),  // Arrow sprite
-                        100f,  // Faster animation
-                        8,     // Number of frames
-                        40,    // More loops
-                        arrowPos * 64f + new Vector2(32f, 32f),  // Position
-                        false,
-                        false,
-                        (arrowPos.Y * 64f) / 10000f,
-                        0f,
-                        Color.Yellow * 0.8f,
-                        3f,    // Slightly smaller scale
-                        0f,
-                        rotation,
-                        0f,
-                        true));
-                }
 
-                // Add a pulsing highlight at the chest location
-                currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(
-                    "LooseSprites\\Cursors",
-                    new Rectangle(536, 1945, 8, 8),  // Highlight sprite
-                    50f,  // Faster animation
-                    8,    // Number of frames
-                    100,  // More loops for longer visibility
-                    chestPos * 64f + new Vector2(32f, 32f),
-                    false,
-                    false,
-                    (chestPos.Y * 64f) / 10000f,
-                    0.2f,  // Pulse effect
-                    Color.Yellow * 0.8f,
-                    4f,    // Larger scale for better visibility
-                    0f,
-                    0f,
-                    0f,
-                    true));
+            Path_Finding.FindPaths(currentLocation, playerPos, chestLocations);
+
+            if (ModEntry.paths.Count > 0)
+            {
+                Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} location(s) in {currentLocation.Name}");
+            }
+            else
+            {
+                Game1.showGlobalMessage($"Cannot find path to {item.DisplayName} in {currentLocation.Name}");
+            }
+        }
+
+        private bool HasItemInLocation(GameLocation location, Item searchItem)
+        {
+            // Check chests
+            foreach (var obj in location.objects.Values)
+            {
+                if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
+                    return true;
             }
 
-            Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} location(s) in {currentLocation.Name}");
+            // Check fridge
+            if (location is StardewValley.Locations.FarmHouse house)
+            {
+                if (house.fridge.Value?.Items != null &&
+                    house.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
+                    return true;
+            }
+            else if (location is StardewValley.Locations.IslandFarmHouse islandHouse)
+            {
+                if (islandHouse.fridge.Value?.Items != null &&
+                    islandHouse.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
+                    return true;
+            }
+
+            return false;
         }
     }
 }

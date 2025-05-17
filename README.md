@@ -53,6 +53,12 @@ Below is the default configuration:
 
 You can edit these settings in the `config.json` file using any text editor. Save your changes and restart the game for them to take effect.
 
+## 📦 Releases
+
+- [Latest Release on GitHub](https://github.com/QuangBM138/Find-Item/releases)
+- [Source Code](https://github.com/QuangBM138/Find-Item)
+- [Nexus Mods Page](https://www.nexusmods.com/stardewvalley/mods/34024)
+
 ## 💡 Feedback & Support
 
 Encounter a bug or have a suggestion? Please open an issue on the [GitHub Issues page](https://github.com/QuangBM138/Find-Item/issues).

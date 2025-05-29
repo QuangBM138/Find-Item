@@ -80,13 +80,57 @@ namespace Find_Item
             if (item == null)
                 return "No description available.";
 
-            // Kiểm tra từng loại item khác nhau
+            // Get the raw description first
+            string rawDescription;
             if (item is StardewValley.Object obj)
-                return obj.getDescription();
+                rawDescription = obj.getDescription();
             else if (item is Tool tool)
-                return tool.Description;  // Tools có property Description
+                rawDescription = tool.Description;
             else
-                return item.getDescription() ?? "No description available.";
+                rawDescription = item.getDescription() ?? "No description available.";
+
+            // Format the description with controlled line breaks
+            return FormatDescription(rawDescription);
+        }
+
+        private string FormatDescription(string description)
+        {
+            if (string.IsNullOrEmpty(description))
+                return "No description available.";
+
+            // Remove existing line breaks and extra spaces
+            description = description.Replace("\n", " ").Replace("\r", " ");
+            while (description.Contains("  "))
+                description = description.Replace("  ", " ");
+
+            var words = description.Split(' ');
+            var lines = new List<string>();
+            var currentLine = new List<string>();
+            int wordCount = 0;
+
+            foreach (var word in words)
+            {
+                // If we've reached 12 words and have words in the current line
+                if (wordCount >= 12 && currentLine.Count > 0)
+                {
+                    // Add current line to lines and start a new line
+                    lines.Add(string.Join(" ", currentLine));
+                    currentLine.Clear();
+                    wordCount = 0;
+                }
+
+                currentLine.Add(word);
+                wordCount++;
+            }
+
+            // Add remaining words
+            if (currentLine.Count > 0)
+            {
+                lines.Add(string.Join(" ", currentLine));
+            }
+
+            // Join lines with proper line breaks
+            return string.Join("\n", lines);
         }
 
         public override void update(GameTime time)
@@ -139,7 +183,7 @@ namespace Find_Item
             textPos.Y += Math.Max(16 * itemScale, Game1.smallFont.MeasureString(title).Y) + 15;
 
             b.DrawString(Game1.smallFont, descLine, textPos, textColor);
-            textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 30;
+            textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 20;
 
             // Draw locations header
             b.DrawString(Game1.smallFont, locationHeader, textPos, headerColor);
@@ -150,8 +194,69 @@ namespace Find_Item
             {
                 if (!string.IsNullOrWhiteSpace(location))
                 {
-                    b.DrawString(Game1.smallFont, "• " + location.Trim(),
-                        new Vector2(textPos.X + 20, textPos.Y), textColor);
+                    float currentX = textPos.X;
+                    
+                    if (location.StartsWith("Grand Total:"))
+                    {
+                        b.DrawString(Game1.smallFont, location.Trim(),
+                            new Vector2(currentX, textPos.Y), new Color(218, 63, 39));
+                    }
+                    else
+                    {
+                        // Draw bullet point and location name
+                        currentX += 20; // Indent for bullet point
+                        string baseText = location;
+                        if (location.Contains("("))
+                        {
+                            baseText = location.Substring(0, location.IndexOf("(")).Trim();
+                        }
+                        b.DrawString(Game1.smallFont, "• " + baseText, 
+                            new Vector2(currentX, textPos.Y), textColor);
+                        currentX += Game1.smallFont.MeasureString("• " + baseText).X + 10;
+
+                        // Draw quality information
+                        if (location.Contains("("))
+                        {
+                            string quantityInfo = location.Substring(
+                                location.IndexOf("(") + 1,
+                                location.IndexOf(")") - location.IndexOf("(") - 1
+                            );
+
+                            foreach (string quantityPair in quantityInfo.Split('|'))
+                            {
+                                string[] parts = quantityPair.Trim().Split(':');
+                                if (parts.Length == 2 && int.TryParse(parts[0], out int quantity))
+                                {
+                                    // Draw quantity
+                                    string quantityText = quantity.ToString();
+                                    b.DrawString(Game1.smallFont, quantityText,
+                                        new Vector2(currentX, textPos.Y), textColor);
+                                    currentX += Game1.smallFont.MeasureString(quantityText).X + 5;
+
+                                    // Draw quality icon
+                                    if (int.TryParse(parts[1], out int quality) && quality > 0)
+                                    {
+                                        DrawQualityIcon(b, quality, new Vector2(currentX, textPos.Y));
+                                        currentX += 20;
+                                    }
+                                    currentX += 15; // Space between quality indicators
+                                }
+                            }
+                        }
+
+                        // Draw total if present
+                        if (location.Contains("[Total:"))
+                        {
+                            string totalText = location.Substring(
+                                location.LastIndexOf("["),
+                                location.LastIndexOf("]") - location.LastIndexOf("[") + 1
+                            );
+                            float totalWidth = Game1.smallFont.MeasureString(totalText).X;
+                            b.DrawString(Game1.smallFont, totalText,
+                                new Vector2(this.xPositionOnScreen + this.width - 60 - totalWidth, textPos.Y),
+                                new Color(103, 152, 235));
+                        }
+                    }
                     textPos.Y += Game1.smallFont.MeasureString(location).Y + 5;
                 }
             }
@@ -273,6 +378,7 @@ namespace Find_Item
         {
             List<string> locations = new List<string>();
             Dictionary<string, int> containerCounts = new Dictionary<string, int>();
+            int grandTotal = 0;
 
             // Check player's inventory first
             var inventoryGroups = Game1.player.Items
@@ -284,18 +390,37 @@ namespace Find_Item
             if (inventoryGroups.Any())
             {
                 var quantities = new List<string>();
+                int inventoryTotal = 0;
                 foreach (var group in inventoryGroups)
                 {
                     int total = group.Sum(i => i.Stack);
-                    string quality = GetQualityText(group.Key);
-                    quantities.Add($"{total} {quality}");
+                    inventoryTotal += total;
+                    quantities.Add($"{total}:{group.Key}"); // Format: "quantity:quality"
                 }
-                return $"Item is in your inventory ({string.Join(", ", quantities)})";
+                grandTotal += inventoryTotal;
+                return $"Item is in your inventory: ({string.Join("|", quantities)}) [Total: {inventoryTotal}]";
             }
 
-            // If not in inventory, search through all locations
-            foreach (GameLocation location in Game1.locations)
+            // Helper method to process location's chests
+            void ProcessLocationChests(GameLocation location, string locationPrefix = "", string buildingName = "")
             {
+                // Get cabin name if this is a cabin
+                string cabinName = "";
+                if (location is StardewValley.Locations.Cabin cabin)
+                {
+                    string ownerName;
+                    if (cabin.owner != null)
+                    {
+                        ownerName = cabin.owner.Name;
+                    }
+                    else
+                    {
+                        // Try to get name from cabin's name
+                        ownerName = cabin.NameOrUniqueName.Split(' ')[0];
+                    }
+                    cabinName = $"{ownerName}'s Cabin";
+                }
+
                 foreach (var obj in location.objects.Values)
                 {
                     if (obj is Chest chest)
@@ -307,15 +432,42 @@ namespace Find_Item
 
                         if (chestGroups.Any())
                         {
-                            string containerKey = $"{chest.DisplayName} in {location.Name}";
+                            // Customize container key based on building type
+                            string containerKey;
+                            if (!string.IsNullOrEmpty(buildingName))
+                            {
+                                // For buildings in farm
+                                containerKey = $"{chest.DisplayName} in {buildingName}";
+                            }
+                            else if (!string.IsNullOrEmpty(cabinName))
+                            {
+                                // For cabin
+                                containerKey = $"{chest.DisplayName} in {cabinName}";
+                            }
+                            else if (!string.IsNullOrEmpty(locationPrefix))
+                            {
+                                // For other prefixed locations
+                                containerKey = $"{chest.DisplayName} in {locationPrefix}{location.DisplayName}";
+                            }
+                            else
+                            {
+                                // For regular locations
+                                containerKey = $"{chest.DisplayName} in {location.DisplayName}";
+                            }
+
+                            // Rest of the chest processing code...
                             var quantities = new List<string>();
+                            int containerTotal = 0;
+
                             foreach (var group in chestGroups)
                             {
                                 int total = group.Sum(i => i.Stack);
-                                string quality = GetQualityText(group.Key);
-                                quantities.Add($"{total} {quality}");
+                                containerTotal += total;
+                                quantities.Add($"{total}:{group.Key}");
                             }
-                            string locationText = $"{containerKey} ({string.Join(", ", quantities)})";
+
+                            grandTotal += containerTotal;
+                            string locationText = $"{containerKey}: ({string.Join("|", quantities)}) [Total: {containerTotal}]";
 
                             if (!containerCounts.ContainsKey(containerKey))
                             {
@@ -325,20 +477,19 @@ namespace Find_Item
                             else
                             {
                                 containerCounts[containerKey]++;
-                                int lastIndex = locations.FindLastIndex(loc => loc.StartsWith(containerKey));
-                                if (lastIndex >= 0)
-                                {
-                                    locations[lastIndex] = $"{locationText} [Storage #{containerCounts[containerKey]}]";
-                                }
+                                locations.Add($"{locationText} [Storage #{containerCounts[containerKey]}]");
                             }
                         }
                     }
                 }
+            }
 
-                // Check fridges with quality grouping
+            // Helper method to check fridges
+            void CheckFridge(GameLocation location, string locationPrefix = "", string buildingName = "")
+            {
                 if (location is StardewValley.Locations.FarmHouse house)
                 {
-                    if (house.fridge.Value != null && house.fridge.Value.Items != null)
+                    if (house.fridge.Value?.Items != null)
                     {
                         var fridgeGroups = house.fridge.Value.Items
                             .Where(i => ItemsMatch(i, item))
@@ -347,45 +498,100 @@ namespace Find_Item
 
                         if (fridgeGroups.Any())
                         {
+                            string locationName = !string.IsNullOrEmpty(buildingName) 
+                                ? buildingName 
+                                : (!string.IsNullOrEmpty(locationPrefix) ? $"{locationPrefix}{location.DisplayName}" : location.DisplayName);
+
                             var quantities = new List<string>();
+                            int fridgeTotal = 0;
+
                             foreach (var group in fridgeGroups)
                             {
                                 int total = group.Sum(i => i.Stack);
-                                string quality = GetQualityText(group.Key);
-                                quantities.Add($"{total} {quality}");
+                                fridgeTotal += total;
+                                quantities.Add($"{total}:{group.Key}");
                             }
-                            locations.Add($"Fridge in {location.Name} ({string.Join(", ", quantities)})");
+
+                            grandTotal += fridgeTotal;
+                            locations.Add($"Fridge in {locationName}: ({string.Join("|", quantities)}) [Total: {fridgeTotal}]");
                         }
                     }
                 }
-                else if (location is StardewValley.Locations.IslandFarmHouse islandHouse)
-                {
-                    if (islandHouse.fridge.Value != null && islandHouse.fridge.Value.Items != null)
-                    {
-                        var fridgeGroups = islandHouse.fridge.Value.Items
-                            .Where(i => ItemsMatch(i, item))
-                            .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
-                            .OrderBy(g => g.Key);
+            }
 
-                        if (fridgeGroups.Any())
+            // Process all locations
+            foreach (GameLocation location in Game1.locations)
+            {
+                if (location is Farm farm)
+                {
+                    // Process main farm location
+                    ProcessLocationChests(farm);
+
+                    // Process each building on the farm
+                    foreach (var building in farm.buildings)
+                    {
+                        if (building.indoors.Value != null)
                         {
-                            var quantities = new List<string>();
-                            foreach (var group in fridgeGroups)
-                            {
-                                int total = group.Sum(i => i.Stack);
-                                string quality = GetQualityText(group.Key);
-                                quantities.Add($"{total} {quality}");
-                            }
-                            locations.Add($"Fridge in {location.Name} ({string.Join(", ", quantities)})");
+                            string buildingName = $"{building.buildingType} at {farm.DisplayName}";
+                            ProcessLocationChests(building.indoors.Value, "", buildingName);
+                            CheckFridge(building.indoors.Value, "", buildingName);
                         }
                     }
+                }
+                else
+                {
+                    // Process regular location (including cabins)
+                    ProcessLocationChests(location);
+                    CheckFridge(location);
                 }
             }
 
             if (locations.Count == 0)
                 return "Item not found in any storage";
 
+            // Sort locations for better organization
+            locations.Sort();
+            
+            // Add grand total at the beginning
+            locations.Insert(0, $"Grand Total: {grandTotal} items");
             return string.Join("\n", locations);
+        }
+
+        private bool HasItemInLocation(GameLocation location, Item searchItem)
+        {
+            // Check chests in the main location
+            foreach (var obj in location.objects.Values)
+            {
+                if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
+                    return true;
+            }
+
+            // Check fridge
+            if (location is StardewValley.Locations.FarmHouse house)
+            {
+                if (house.fridge.Value?.Items != null &&
+                    house.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
+                    return true;
+            }
+
+            // If it's a farm, check all buildings
+            if (location is Farm farm)
+            {
+                foreach (var building in farm.buildings)
+                {
+                    if (building.indoors.Value != null)
+                    {
+                        // Check chests in the building
+                        foreach (var obj in building.indoors.Value.objects.Values)
+                        {
+                            if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
+                                return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -404,8 +610,7 @@ namespace Find_Item
             if (item1 is StardewValley.Object obj1 && item2 is StardewValley.Object obj2)
             {
                 return basicMatch &&
-                       obj1.ParentSheetIndex == obj2.ParentSheetIndex &&
-                       obj1.Quality == obj2.Quality;  // Added comparison for Quality
+                       obj1.ParentSheetIndex == obj2.ParentSheetIndex; // Removed Quality comparison
             }
 
             // Special comparison for other item types
@@ -530,30 +735,30 @@ namespace Find_Item
             }
         }
 
-        private bool HasItemInLocation(GameLocation location, Item searchItem)
+        /// <summary>
+        /// Draws the quality icon for an item
+        /// </summary>
+        private void DrawQualityIcon(SpriteBatch b, int quality, Vector2 position)
         {
-            // Check chests
-            foreach (var obj in location.objects.Values)
+            if (quality <= 0) return; // Don't draw anything for normal quality
+
+            Rectangle qualityRect;
+            switch (quality)
             {
-                if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
-                    return true;
+                case 1: // Silver
+                    qualityRect = new Rectangle(338, 400, 8, 8);
+                    break;
+                case 2: // Gold
+                    qualityRect = new Rectangle(346, 400, 8, 8);
+                    break;
+                case 4: // Iridium
+                    qualityRect = new Rectangle(346, 392, 8, 8);
+                    break;
+                default:
+                    return;
             }
 
-            // Check fridge
-            if (location is StardewValley.Locations.FarmHouse house)
-            {
-                if (house.fridge.Value?.Items != null &&
-                    house.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
-                    return true;
-            }
-            else if (location is StardewValley.Locations.IslandFarmHouse islandHouse)
-            {
-                if (islandHouse.fridge.Value?.Items != null &&
-                    islandHouse.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
-                    return true;
-            }
-
-            return false;
+            b.Draw(Game1.mouseCursors, position, qualityRect, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 1f);
         }
     }
 }

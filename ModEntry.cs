@@ -11,6 +11,7 @@ using System.Linq;
 using System.IO;
 using Find_Item.Config;
 using Find_Item.Framework;
+using StardewValley.Locations;
 namespace Find_Item
 {
     public class ModEntry : Mod
@@ -129,40 +130,60 @@ namespace Find_Item
         {
             List<Item> items = new List<Item>();
 
-            // Add items from the player's inventory.
+            // Add items from the player's inventory
             items.AddRange(Game1.player.Items.Where(item => item != null));
 
-            // Iterate through all locations.
-            foreach (GameLocation location in Game1.locations)
+            // Helper method to check and add items from fridges
+            void AddFridgeItems(GameLocation location)
             {
-                // Check each object in the location.
-                foreach (var obj in location.objects.Values)
+                // Check if location has a fridge (FarmHouse or IslandFarmHouse)
+                if (location is StardewValley.Locations.FarmHouse house && house.fridge.Value?.Items != null)
                 {
-                    if (obj is Chest chest)
+                    items.AddRange(house.fridge.Value.Items.Where(item => item != null));
+                }
+                else if (location is StardewValley.Locations.IslandFarmHouse islandHouse && islandHouse.fridge.Value?.Items != null)
+                {
+                    items.AddRange(islandHouse.fridge.Value.Items.Where(item => item != null));
+                }
+            }
+
+            // Get all game locations including buildings
+            List<GameLocation> allLocations = new List<GameLocation>();
+            
+            // Add main locations
+            allLocations.AddRange(Game1.locations);
+            
+            // Add buildings from all farms
+            foreach (var location in Game1.locations)
+            {
+                // Check if location is a farm
+                if (location is Farm farm)
+                {
+                    // Add all buildings in the farm (barns, coops, etc.)
+                    foreach (var building in farm.buildings)
                     {
-                        // Lấy items từ tất cả các rương, không chỉ của người chơi hiện tại
-                        if (chest.Items != null)  // Sử dụng Items thay vì items
+                        if (building.indoors.Value != null)
                         {
-                            items.AddRange(chest.Items.Where(item => item != null));
+                            allLocations.Add(building.indoors.Value);
                         }
                     }
                 }
+            }
 
-                // Also, if the location is a farmhouse (or island farmhouse), add fridge contents.
-                if (location is StardewValley.Locations.FarmHouse house)
+            // Process all locations
+            foreach (GameLocation location in allLocations)
+            {
+                // Check each object in the location
+                foreach (var obj in location.objects.Values)
                 {
-                    if (house.fridge.Value != null && house.fridge.Value.Items != null)  // Sử dụng Items
+                    if (obj is Chest chest && chest.Items != null)
                     {
-                        items.AddRange(house.fridge.Value.Items.Where(item => item != null));
+                        items.AddRange(chest.Items.Where(item => item != null));
                     }
                 }
-                else if (location is StardewValley.Locations.IslandFarmHouse islandHouse)
-                {
-                    if (islandHouse.fridge.Value != null && islandHouse.fridge.Value.Items != null)  // Sử dụng Items
-                    {
-                        items.AddRange(islandHouse.fridge.Value.Items.Where(item => item != null));
-                    }
-                }
+
+                // Check location's fridge
+                AddFridgeItems(location);
             }
 
             return items;

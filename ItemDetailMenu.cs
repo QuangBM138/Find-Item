@@ -398,7 +398,7 @@ namespace Find_Item
                     quantities.Add($"{total}:{group.Key}"); // Format: "quantity:quality"
                 }
                 grandTotal += inventoryTotal;
-                return $"Item is in your inventory: ({string.Join("|", quantities)}) [Total: {inventoryTotal}]";
+                locations.Add($"Your Inventory: ({string.Join("|", quantities)}) [Total: {inventoryTotal}]");
             }
 
             // Helper method to process location's chests
@@ -434,15 +434,15 @@ namespace Find_Item
                         {
                             // Customize container key based on building type
                             string containerKey;
-                            if (!string.IsNullOrEmpty(buildingName))
-                            {
-                                // For buildings in farm
-                                containerKey = $"{chest.DisplayName} in {buildingName}";
-                            }
-                            else if (!string.IsNullOrEmpty(cabinName))
+                            if (!string.IsNullOrEmpty(cabinName))
                             {
                                 // For cabin
                                 containerKey = $"{chest.DisplayName} in {cabinName}";
+                            }
+                            else if (!string.IsNullOrEmpty(buildingName))
+                            {
+                                // For buildings in farm
+                                containerKey = $"{chest.DisplayName} in {buildingName}";
                             }
                             else if (!string.IsNullOrEmpty(locationPrefix))
                             {

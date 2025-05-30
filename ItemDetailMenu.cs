@@ -195,7 +195,7 @@ namespace Find_Item
                 if (!string.IsNullOrWhiteSpace(location))
                 {
                     float currentX = textPos.X;
-                    
+
                     if (location.StartsWith("Grand Total:"))
                     {
                         b.DrawString(Game1.smallFont, location.Trim(),
@@ -210,7 +210,7 @@ namespace Find_Item
                         {
                             baseText = location.Substring(0, location.IndexOf("(")).Trim();
                         }
-                        b.DrawString(Game1.smallFont, "• " + baseText, 
+                        b.DrawString(Game1.smallFont, "• " + baseText,
                             new Vector2(currentX, textPos.Y), textColor);
                         currentX += Game1.smallFont.MeasureString("• " + baseText).X + 10;
 
@@ -408,17 +408,7 @@ namespace Find_Item
                 string cabinName = "";
                 if (location is StardewValley.Locations.Cabin cabin)
                 {
-                    string ownerName;
-                    if (cabin.owner != null)
-                    {
-                        ownerName = cabin.owner.Name;
-                    }
-                    else
-                    {
-                        // Try to get name from cabin's name
-                        ownerName = cabin.NameOrUniqueName.Split(' ')[0];
-                    }
-                    cabinName = $"{ownerName}'s Cabin";
+                    cabinName = GetCabinOwnerName(cabin);
                 }
 
                 foreach (var obj in location.objects.Values)
@@ -487,21 +477,31 @@ namespace Find_Item
             // Helper method to check fridges
             void CheckFridge(GameLocation location, string locationPrefix = "", string buildingName = "")
             {
-                if (location is StardewValley.Locations.FarmHouse house)
+                if (location is StardewValley.Locations.FarmHouse || location is StardewValley.Locations.Cabin)
                 {
-                    if (house.fridge.Value?.Items != null)
+                    Chest fridge = null;
+                    string locationName = "";
+
+                    if (location is StardewValley.Locations.Cabin cabin)
                     {
-                        var fridgeGroups = house.fridge.Value.Items
+                        locationName = GetCabinOwnerName(cabin);
+                        fridge = cabin.fridge.Value;
+                    }
+                    else if (location is StardewValley.Locations.FarmHouse)
+                    {
+                        locationName = !string.IsNullOrEmpty(buildingName) ? buildingName : "Farmhouse";
+                        fridge = (location as StardewValley.Locations.FarmHouse).fridge.Value;
+                    }
+
+                    if (fridge?.Items != null)
+                    {
+                        var fridgeGroups = fridge.Items
                             .Where(i => ItemsMatch(i, item))
                             .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
                             .OrderBy(g => g.Key);
 
                         if (fridgeGroups.Any())
                         {
-                            string locationName = !string.IsNullOrEmpty(buildingName) 
-                                ? buildingName 
-                                : (!string.IsNullOrEmpty(locationPrefix) ? $"{locationPrefix}{location.DisplayName}" : location.DisplayName);
-
                             var quantities = new List<string>();
                             int fridgeTotal = 0;
 
@@ -551,7 +551,7 @@ namespace Find_Item
 
             // Sort locations for better organization
             locations.Sort();
-            
+
             // Add grand total at the beginning
             locations.Insert(0, $"Grand Total: {grandTotal} items");
             return string.Join("\n", locations);
@@ -640,64 +640,142 @@ namespace Find_Item
         /// </summary>
         private void DrawPathToChests()
         {
-            //// Thêm cache cho đường đi
-            //if (ModEntry.paths.Count > 0)
-            //{
-            //    // Clear old paths only when finding new ones
-            //    ModEntry.paths.Clear();
-            //    ModEntry.pathColors.Clear();
-            //}
-
             // Check if item is in inventory first
             if (Game1.player.Items.Any(i => ItemsMatch(i, item)))
             {
                 Game1.showGlobalMessage($"{item.DisplayName} is in your inventory");
-                return;
+                //return;
             }
 
-            List<Vector2> chestLocations = new List<Vector2>();
             GameLocation currentLocation = Game1.currentLocation;
+            List<Vector2> chestLocations = new List<Vector2>();
+            List<string> containerDetails = new List<string>();
 
-            // Find all chests containing the item in current location
-            foreach (var obj in currentLocation.objects.Pairs)
+            // Function to check location and its containers
+            void CheckLocationContainers(GameLocation location, string locationPrefix = "")
             {
-                if (obj.Value is Chest chest && chest.Items.Any(i => ItemsMatch(i, item)))
+                // Get cabin name if this is a cabin
+                string cabinName = "";
+                if (location is StardewValley.Locations.Cabin currentCabin) // Changed 'cabin' to 'currentCabin'
                 {
-                    chestLocations.Add(obj.Key);
+                    cabinName = GetCabinOwnerName(currentCabin);
+                }
+
+                // Check regular chests
+                foreach (var obj in location.objects.Pairs)
+                {
+                    if (obj.Value is Chest chest && chest.Items.Any(i => ItemsMatch(i, item)))
+                    {
+                        if (location == currentLocation)
+                        {
+                            chestLocations.Add(obj.Key);
+                            // Add cabin name to the container details if in a cabin
+                            string containerName = !string.IsNullOrEmpty(cabinName)
+                                ? $"{chest.DisplayName} in {cabinName}"
+                                : $"{chest.DisplayName}";
+                            containerDetails.Add(containerName);
+                        }
+                        else
+                        {
+                            string locName;
+                            if (!string.IsNullOrEmpty(cabinName))
+                            {
+                                locName = cabinName;
+                            }
+                            else
+                            {
+                                locName = !string.IsNullOrEmpty(locationPrefix)
+                                    ? $"{locationPrefix} {location.DisplayName}"
+                                    : location.DisplayName;
+                            }
+                            containerDetails.Add($"{chest.DisplayName} in {locName}");
+                        }
+                    }
+                }
+
+
+                if (location is StardewValley.Locations.Cabin cabinWithFridge) // Changed 'cabin' to 'cabinWithFridge'
+                {
+                    if (cabinWithFridge.fridge.Value?.Items != null &&
+                        cabinWithFridge.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
+                    {
+                        string cabinOwnerName = GetCabinOwnerName(cabinWithFridge);
+                        if (location == currentLocation)
+                        {
+                            chestLocations.Add(cabinWithFridge.fridge.Value.TileLocation);
+                            containerDetails.Add($"Fridge in {cabinOwnerName}");
+                        }
+                        else
+                        {
+                            containerDetails.Add($"Fridge in {cabinOwnerName}");
+                        }
+                    }
+                } else if (location is StardewValley.Locations.FarmHouse house)
+                {
+                    if (house.fridge.Value?.Items != null &&
+                        house.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
+                    {
+                        if (location == currentLocation)
+                        {
+                            chestLocations.Add(house.fridge.Value.TileLocation);
+                            containerDetails.Add($"Fridge in Farmhouse");
+                        }
+                        else
+                        {
+                            containerDetails.Add($"Fridge in Farmhouse");
+                        }
+                    }
                 }
             }
 
-            // Check fridge if in FarmHouse
-            if (currentLocation is StardewValley.Locations.FarmHouse house)
+            // Check current location first
+            CheckLocationContainers(currentLocation);
+
+            // If current location is Farm, check buildings
+            if (currentLocation is Farm farm)
             {
-                if (house.fridge.Value?.Items != null &&
-                    house.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
+                foreach (var building in farm.buildings)
                 {
-                    chestLocations.Add(house.fridge.Value.TileLocation);
-                }
-            }
-            else if (currentLocation is StardewValley.Locations.IslandFarmHouse islandHouse)
-            {
-                if (islandHouse.fridge.Value?.Items != null &&
-                    islandHouse.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
-                {
-                    chestLocations.Add(islandHouse.fridge.Value.TileLocation);
+                    if (building.indoors.Value != null)
+                    {
+                        CheckLocationContainers(building.indoors.Value, building.buildingType.ToString());
+                    }
                 }
             }
 
+            // If no chests found in current location, check other locations
             if (chestLocations.Count == 0)
             {
-                // Get a list of other locations where the item exists
-                var otherLocations = Game1.locations
-                    .Where(loc => loc != currentLocation)
-                    .Where(loc => HasItemInLocation(loc, item))
-                    .Select(loc => loc.Name)
-                    .ToList();
-
-                if (otherLocations.Count > 0)
+                foreach (GameLocation location in Game1.locations)
                 {
-                    string locationList = string.Join(", ", otherLocations);
-                    Game1.showGlobalMessage($"{item.DisplayName} is not in {currentLocation.Name}, but can be found in: {locationList}");
+                    if (location == currentLocation) continue;
+
+                    // Check regular locations
+                    if (!(location is Farm))
+                    {
+                        CheckLocationContainers(location);
+                    }
+                    // Check Farm and its buildings
+                    else
+                    {
+                        Farm otherFarm = location as Farm;
+                        CheckLocationContainers(otherFarm);
+
+                        foreach (var building in otherFarm.buildings)
+                        {
+                            if (building.indoors.Value != null)
+                            {
+                                CheckLocationContainers(building.indoors.Value, building.buildingType.ToString());
+                            }
+                        }
+                    }
+                }
+
+                // Show detailed message about where items were found
+                if (containerDetails.Count > 0)
+                {
+                    string locationList = string.Join("\n", containerDetails);
+                    Game1.showGlobalMessage($"{item.DisplayName} can be found in:\n{locationList}");
                 }
                 else
                 {
@@ -706,7 +784,7 @@ namespace Find_Item
                 return;
             }
 
-            // Find paths to all chests
+            // Draw paths to chests in current location
             Vector2 playerPos = new Vector2(
                 (int)(Game1.player.Position.X / 64),
                 (int)(Game1.player.Position.Y / 64)
@@ -716,12 +794,12 @@ namespace Find_Item
 
             if (ModEntry.paths.Count > 0)
             {
-                Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} location(s) in {currentLocation.Name}");
-                
-                // Only auto-hide if enabled in config
+                string details = string.Join("\n", containerDetails);
+                Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} container(s):\n{details}");
+
                 if (ModEntry.Config.AutoHidePaths)
                 {
-                    Task.Delay(ModEntry.Config.AutoHideDelay * 1000).ContinueWith(_ => 
+                    Task.Delay(ModEntry.Config.AutoHideDelay * 1000).ContinueWith(_ =>
                     {
                         ModEntry.shouldDraw = false;
                         ModEntry.paths.Clear();
@@ -759,6 +837,28 @@ namespace Find_Item
             }
 
             b.Draw(Game1.mouseCursors, position, qualityRect, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 1f);
+        }
+
+        /// <summary>
+        /// Gets the formatted cabin owner name.
+        /// </summary>
+        /// <param name="cabin">The cabin to get the owner name from.</param>
+        /// <returns>Formatted string like "OwnerName's Cabin"</returns>
+        private string GetCabinOwnerName(StardewValley.Locations.Cabin cabin)
+        {
+            if (cabin == null) return "Unknown Cabin";
+
+            string ownerName;
+            if (cabin.owner != null)
+            {
+                ownerName = cabin.owner.Name;
+            }
+            else
+            {
+                // Try to get name from cabin's name
+                ownerName = cabin.NameOrUniqueName.Split(' ')[0];
+            }
+            return $"{ownerName}'s Cabin";
         }
     }
 }

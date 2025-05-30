@@ -1,7 +1,7 @@
 {
   "Name": "Find Item",
   "Author": "ogahalo00",
-  "Version": "1.0.0",
+  "Version": "1.1.0",
   "Description": "Helps find items in chests and inventories",
   "UniqueID": "ogahlo00.Find_Item",
   "EntryDll": "Find_Item.dll",

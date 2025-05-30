@@ -1,5 +1,4 @@
-﻿// ItemSearchMenu.cs
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using StardewModdingAPI.Utilities;
@@ -14,7 +13,7 @@ namespace Find_Item
 {
 
 
-    /// <summary>A simple search UI which mimics Lookup Anything’s search menu but only for items.</summary>
+    /// <summary>A simple search UI which mimics Lookup Anything's search menu but only for items.</summary>
     public class ItemSearchMenu : IClickableMenu
     {
         private List<ItemSubject> AllSubjects;
@@ -33,10 +32,10 @@ namespace Find_Item
         // Add an additional parameter (with a default empty string) to the constructor.
         public ItemSearchMenu(List<ItemSubject> subjects, Action<Item> onSelect, string initialQuery = "")
             : base(
-                  Game1.viewport.Width / 4, // xPositionOnScreen
-                  Game1.viewport.Height / 4, // yPositionOnScreen
-                  Game1.viewport.Width / 2, // width
-                  Game1.viewport.Height / 2, // height
+                  GetViewportAdjustedX(),
+                  GetViewportAdjustedY(),
+                  GetViewportAdjustedWidth(),
+                  GetViewportAdjustedHeight(),
                   true) // showUpperCloseButton
         {
             this.AllSubjects = subjects;
@@ -51,8 +50,32 @@ namespace Find_Item
                 Y = this.yPositionOnScreen + 20,
                 Width = this.width - 40,
                 Height = 40,
-                Text = initialQuery  // Set the initial search query.
+                Text = initialQuery,  // Set the initial search query.
             };
+            this.SearchBox.Selected = true; // Automatically select the textbox for input
+            Game1.keyboardDispatcher.Subscriber = this.SearchBox; // Ensure the textbox is the keyboard subscriber
+
+        }
+
+        // Add helper methods for zoom-adjusted positioning
+        private static int GetViewportAdjustedX()
+        {
+            return Game1.uiViewport.Width / 4;
+        }
+
+        private static int GetViewportAdjustedY()
+        {
+            return Game1.uiViewport.Height / 4;
+        }
+
+        private static int GetViewportAdjustedWidth()
+        {
+            return Game1.uiViewport.Width / 2;
+        }
+
+        private static int GetViewportAdjustedHeight()
+        {
+            return Game1.uiViewport.Height / 2;
         }
 
         // Update the gameWindowSizeChanged override to pass along the current search query.
@@ -147,8 +170,12 @@ namespace Find_Item
 
         public override void draw(SpriteBatch b)
         {
-            // Darken the background.
-            b.Draw(Game1.fadeToBlackRect, new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height), Color.Black * 0.75f);
+            // Sửa phần vẽ background để sử dụng uiViewport thay vì viewport
+            b.Draw(
+                Game1.fadeToBlackRect,
+        new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height),
+                Color.Black * 0.75f
+            );
 
             // Draw the menu box.
             IClickableMenu.drawTextureBox(

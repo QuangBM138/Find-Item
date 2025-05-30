@@ -35,22 +35,39 @@ namespace Find_Item
 
         public ItemDetailMenu(Item item, List<ItemSubject> subjects, Action<Item> onSelect)
             : base(
-                  Game1.viewport.Width / 8,  // xPositionOnScreen (moved further left)
-                  Game1.viewport.Height / 8, // yPositionOnScreen (moved further down)
-                  Game1.viewport.Width * 3 / 4,  // width (three-quarters of viewport width)
-                  Game1.viewport.Height * 3 / 4, // height (three-quarters of viewport height)
+                  GetViewportAdjustedX(), // Use helper method instead of direct calculation
+                  GetViewportAdjustedY(), // Use helper method instead of direct calculation
+                  GetViewportAdjustedWidth(),
+                  GetViewportAdjustedHeight(),
                   true)
         {
             this.item = item;
             this.allSubjects = subjects;
             this.onSelect = onSelect;
-            // Use the item's description if available.
             this.description = GetItemDescription(item);
-            // Determine the current location of the item.
             this.locationInfo = DetermineLocation(item);
-
-            // Calculate button positions
             CalculateButtons();
+        }
+
+        // Add these helper methods to handle zoom-adjusted positioning
+        private static int GetViewportAdjustedX()
+        {
+            return Game1.uiViewport.Width / 8;
+        }
+
+        private static int GetViewportAdjustedY()
+        {
+            return Game1.uiViewport.Height / 8;
+        }
+
+        private static int GetViewportAdjustedWidth()
+        {
+            return Game1.uiViewport.Width * 3 / 4;
+        }
+
+        private static int GetViewportAdjustedHeight()
+        {
+            return Game1.uiViewport.Height * 3 / 4;
         }
 
         private Rectangle CalculateButtons()
@@ -142,8 +159,12 @@ namespace Find_Item
 
         public override void draw(SpriteBatch b)
         {
-            // Darken the background.
-            b.Draw(Game1.fadeToBlackRect, new Rectangle(0, 0, Game1.viewport.Width, Game1.viewport.Height), Color.Black * 0.75f);
+            // Sửa phần vẽ background để sử dụng uiViewport
+            b.Draw(
+                Game1.fadeToBlackRect,
+        new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height),
+                Color.Black * 0.75f
+            );
 
             // Draw a larger texture box for the detail panel.
             IClickableMenu.drawTextureBox(
@@ -640,17 +661,17 @@ namespace Find_Item
         /// </summary>
         private void DrawPathToChests()
         {
-            // Check if item is in inventory first
-            if (Game1.player.Items.Any(i => ItemsMatch(i, item)))
-            {
-                Game1.showGlobalMessage($"{item.DisplayName} is in your inventory");
-                //return;
-            }
+
 
             GameLocation currentLocation = Game1.currentLocation;
             List<Vector2> chestLocations = new List<Vector2>();
             List<string> containerDetails = new List<string>();
 
+            // Check if item is in inventory first
+            if (Game1.player.Items.Any(i => ItemsMatch(i, item)))
+            {
+                containerDetails.Add("your inventory");
+            }
             // Function to check location and its containers
             void CheckLocationContainers(GameLocation location, string locationPrefix = "")
             {
@@ -694,7 +715,7 @@ namespace Find_Item
                 }
 
 
-                if (location is StardewValley.Locations.Cabin cabinWithFridge) // Changed 'cabin' to 'cabinWithFridge'
+                if (location is StardewValley.Locations.Cabin cabinWithFridge)
                 {
                     if (cabinWithFridge.fridge.Value?.Items != null &&
                         cabinWithFridge.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
@@ -702,7 +723,6 @@ namespace Find_Item
                         string cabinOwnerName = GetCabinOwnerName(cabinWithFridge);
                         if (location == currentLocation)
                         {
-                            chestLocations.Add(cabinWithFridge.fridge.Value.TileLocation);
                             containerDetails.Add($"Fridge in {cabinOwnerName}");
                         }
                         else
@@ -710,14 +730,14 @@ namespace Find_Item
                             containerDetails.Add($"Fridge in {cabinOwnerName}");
                         }
                     }
-                } else if (location is StardewValley.Locations.FarmHouse house)
+                }
+                else if (location is StardewValley.Locations.FarmHouse house)
                 {
                     if (house.fridge.Value?.Items != null &&
                         house.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
                     {
                         if (location == currentLocation)
                         {
-                            chestLocations.Add(house.fridge.Value.TileLocation);
                             containerDetails.Add($"Fridge in Farmhouse");
                         }
                         else

@@ -1,9 +1,0 @@
-D:\CODE-quangbm138\Mod_svd\Find-Item\bin\Debug\net6.0\Find_Item.deps.json
-D:\CODE-quangbm138\Mod_svd\Find-Item\bin\Debug\net6.0\Find_Item.dll
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.csproj.AssemblyReference.cache
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.GeneratedMSBuildEditorConfig.editorconfig
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.AssemblyInfoInputs.cache
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.AssemblyInfo.cs
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.csproj.CoreCompileInputs.cache
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.sourcelink.json
-D:\CODE-quangbm138\Mod_svd\Find-Item\obj\Debug\net6.0\Find_Item.dll

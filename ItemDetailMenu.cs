@@ -1,4 +1,4 @@
-﻿//ItemDetailMenu.cs
+// ItemDetailMenu.cs
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -8,35 +8,32 @@ using StardewValley.Objects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Find_Item.Utilities;
 using Find_Item.Config;
+using Find_Item.Framework;
 
 namespace Find_Item
 {
     /// <summary>
-    /// Displays a larger TextureBox showing full details about a selected item.
+    /// Displays a larger TextureBox showing full details and storage locations for a selected item.
     /// </summary>
     public class ItemDetailMenu : IClickableMenu
     {
-        private Item item;
-        private string description;
-        private string locationInfo;
-        //private string obtainInfo;
+        private readonly Item item;
+        private readonly string description;
+        private readonly string locationInfo;
 
-        // Renamed field to hide parent's readyToClose member.
         private new bool readyToClose = false;
 
         private Rectangle closeButton;
         private Rectangle findButton;
-        private const string FindButtonText = "Find";
         private readonly List<ItemSubject> allSubjects;
-        private Action<Item> onSelect;
+        private readonly Action<Item> onSelect;
 
         public ItemDetailMenu(Item item, List<ItemSubject> subjects, Action<Item> onSelect)
             : base(
-                  GetViewportAdjustedX(), // Use helper method instead of direct calculation
-                  GetViewportAdjustedY(), // Use helper method instead of direct calculation
+                  GetViewportAdjustedX(),
+                  GetViewportAdjustedY(),
                   GetViewportAdjustedWidth(),
                   GetViewportAdjustedHeight(),
                   true)
@@ -44,12 +41,11 @@ namespace Find_Item
             this.item = item;
             this.allSubjects = subjects;
             this.onSelect = onSelect;
-            this.description = GetItemDescription(item);
-            this.locationInfo = DetermineLocation(item);
-            CalculateButtons();
+            this.description = this.GetItemDescription(item);
+            this.locationInfo = this.DetermineLocation(item);
+            this.CalculateButtons();
         }
 
-        // Add these helper methods to handle zoom-adjusted positioning
         private static int GetViewportAdjustedX()
         {
             return Game1.uiViewport.Width / 8;
@@ -72,21 +68,25 @@ namespace Find_Item
 
         private Rectangle CalculateButtons()
         {
-            // Create close button in the top-right corner
+            // Close button in the top-right corner
             this.closeButton = new Rectangle(
-                this.xPositionOnScreen + this.width - 48,  // X position
-                this.yPositionOnScreen + 8,                // Y position
-                36,                                        // Width
-                36                                         // Height
+                this.xPositionOnScreen + this.width - 48,
+                this.yPositionOnScreen + 12,
+                36,
+                36
             );
 
-            // Create find button at the bottom of the menu with increased height
-            Vector2 findTextSize = Game1.smallFont.MeasureString(FindButtonText);
+            // Find button at the bottom of the menu, dynamically sized based on text
+            string findButtonText = ModEntry.I18n("detail.find-button");
+            Vector2 findTextSize = Game1.smallFont.MeasureString(findButtonText);
+            int buttonWidth = Math.Max(220, (int)findTextSize.X + 60);
+            int buttonHeight = 56;
+
             this.findButton = new Rectangle(
-                this.xPositionOnScreen + (this.width - 300) / 2,  // Center horizontally, increased width to 300
-                this.yPositionOnScreen + this.height - 100,       // 100 pixels from bottom (was 80)
-                300,                                              // Wider button (was 200)
-                70                                                // Taller button (was 50)
+                this.xPositionOnScreen + (this.width - buttonWidth) / 2,
+                this.yPositionOnScreen + this.height - buttonHeight - 20,
+                buttonWidth,
+                buttonHeight
             );
 
             return this.findButton;
@@ -95,27 +95,24 @@ namespace Find_Item
         private string GetItemDescription(Item item)
         {
             if (item == null)
-                return "No description available.";
+                return ModEntry.I18n("detail.no-description");
 
-            // Get the raw description first
             string rawDescription;
             if (item is StardewValley.Object obj)
                 rawDescription = obj.getDescription();
             else if (item is Tool tool)
                 rawDescription = tool.Description;
             else
-                rawDescription = item.getDescription() ?? "No description available.";
+                rawDescription = item.getDescription() ?? ModEntry.I18n("detail.no-description");
 
-            // Format the description with controlled line breaks
-            return FormatDescription(rawDescription);
+            return this.FormatDescription(rawDescription);
         }
 
         private string FormatDescription(string description)
         {
             if (string.IsNullOrEmpty(description))
-                return "No description available.";
+                return ModEntry.I18n("detail.no-description");
 
-            // Remove existing line breaks and extra spaces
             description = description.Replace("\n", " ").Replace("\r", " ");
             while (description.Contains("  "))
                 description = description.Replace("  ", " ");
@@ -127,10 +124,8 @@ namespace Find_Item
 
             foreach (var word in words)
             {
-                // If we've reached 12 words and have words in the current line
-                if (wordCount >= 12 && currentLine.Count > 0)
+                if (wordCount >= 14 && currentLine.Count > 0)
                 {
-                    // Add current line to lines and start a new line
                     lines.Add(string.Join(" ", currentLine));
                     currentLine.Clear();
                     wordCount = 0;
@@ -140,33 +135,30 @@ namespace Find_Item
                 wordCount++;
             }
 
-            // Add remaining words
             if (currentLine.Count > 0)
             {
                 lines.Add(string.Join(" ", currentLine));
             }
 
-            // Join lines with proper line breaks
             return string.Join("\n", lines);
         }
 
         public override void update(GameTime time)
         {
             base.update(time);
-            // Allow menu to be closed after the first update.
-            readyToClose = true;
+            this.readyToClose = true;
         }
 
         public override void draw(SpriteBatch b)
         {
-            // Sửa phần vẽ background để sử dụng uiViewport
+            // Dim background
             b.Draw(
                 Game1.fadeToBlackRect,
-        new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height),
+                new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height),
                 Color.Black * 0.75f
             );
 
-            // Draw a larger texture box for the detail panel.
+            // Dialog texture box
             IClickableMenu.drawTextureBox(
                 b,
                 Game1.menuTexture,
@@ -177,127 +169,118 @@ namespace Find_Item
                 this.height,
                 Color.White,
                 1f,
-                drawShadow: true);
+                drawShadow: true
+            );
 
-            // Prepare multiline detail text.
-            string title = $"Item: {this.item.DisplayName}";
-            string descLine = $"Description: {this.description}";
-            string locationHeader = "Locations:";
-            //string obtainLine = this.obtainInfo;
+            // Text positions
+            string title = ModEntry.I18n("detail.item", this.item.DisplayName);
+            string descLine = ModEntry.I18n("detail.description", this.description);
+            string locationHeader = ModEntry.I18n("detail.locations");
 
-            // Starting position with a larger margin.
             Vector2 textPos = new Vector2(this.xPositionOnScreen + 40, this.yPositionOnScreen + 40);
             Color textColor = Color.Black;
-            Color headerColor = new Color(85, 85, 85); // Slightly darker for headers
+            Color headerColor = new Color(75, 75, 75);
 
-            // Draw item icon first
-            float itemScale = 2f; // Make the icon a bit larger
+            // Draw item icon
+            float itemScale = 2.4f;
             Vector2 iconPos = new Vector2(textPos.X, textPos.Y);
-
-            // Use ItemDrawHelper instead of direct drawing logic
             ItemDrawHelper.DrawItemIcon(b, this.item, iconPos, itemScale);
 
-            // Draw title text after icon with offset - using GetIconWidth from helper
-            float iconWidth = ItemDrawHelper.GetIconWidth(itemScale);
-            Vector2 titlePos = new Vector2(textPos.X + iconWidth, textPos.Y);
-            b.DrawString(Game1.smallFont, $"Item: {this.item.DisplayName}", titlePos, textColor);
-            textPos.Y += Math.Max(16 * itemScale, Game1.smallFont.MeasureString(title).Y) + 15;
+            // Draw title text after icon centered with icon
+            float iconWidth = ItemDrawHelper.GetIconWidth(itemScale) + 16;
+            Vector2 titlePos = new Vector2(textPos.X + iconWidth, textPos.Y + (16 * itemScale - Game1.smallFont.MeasureString(title).Y) / 2f);
+            b.DrawString(Game1.smallFont, title, titlePos, textColor);
+            textPos.Y += Math.Max(16 * itemScale, Game1.smallFont.MeasureString(title).Y) + 18;
 
+            // Draw description
             b.DrawString(Game1.smallFont, descLine, textPos, textColor);
             textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 20;
 
             // Draw locations header
             b.DrawString(Game1.smallFont, locationHeader, textPos, headerColor);
-            textPos.Y += Game1.smallFont.MeasureString(locationHeader).Y + 5;
+            textPos.Y += Game1.smallFont.MeasureString(locationHeader).Y + 8;
 
-            // Draw each location on a new line
+            string grandTotalPrefix = ModEntry.I18n("detail.grand-total", "").Split(':')[0];
+
+            // Draw each location line
             foreach (string location in this.locationInfo.Split('\n'))
             {
-                if (!string.IsNullOrWhiteSpace(location))
+                if (string.IsNullOrWhiteSpace(location))
+                    continue;
+
+                float currentX = textPos.X;
+
+                // Grand Total line
+                if (location.StartsWith("Grand Total:") || (!string.IsNullOrEmpty(grandTotalPrefix) && location.StartsWith(grandTotalPrefix)))
                 {
-                    float currentX = textPos.X;
-
-                    if (location.StartsWith("Grand Total:"))
+                    b.DrawString(Game1.smallFont, location.Trim(), new Vector2(currentX, textPos.Y), new Color(218, 63, 39));
+                }
+                else
+                {
+                    currentX += 20; // Indent
+                    string baseText = location;
+                    if (location.Contains("("))
                     {
-                        b.DrawString(Game1.smallFont, location.Trim(),
-                            new Vector2(currentX, textPos.Y), new Color(218, 63, 39));
+                        baseText = location.Substring(0, location.IndexOf("(")).Trim();
                     }
-                    else
+                    b.DrawString(Game1.smallFont, "• " + baseText, new Vector2(currentX, textPos.Y), textColor);
+                    currentX += Game1.smallFont.MeasureString("• " + baseText).X + 10;
+
+                    // Draw quality information
+                    if (location.Contains("(") && location.Contains(")"))
                     {
-                        // Draw bullet point and location name
-                        currentX += 20; // Indent for bullet point
-                        string baseText = location;
-                        if (location.Contains("("))
+                        int openParen = location.IndexOf("(");
+                        int closeParen = location.IndexOf(")");
+                        if (closeParen > openParen)
                         {
-                            baseText = location.Substring(0, location.IndexOf("(")).Trim();
-                        }
-                        b.DrawString(Game1.smallFont, "• " + baseText,
-                            new Vector2(currentX, textPos.Y), textColor);
-                        currentX += Game1.smallFont.MeasureString("• " + baseText).X + 10;
-
-                        // Draw quality information
-                        if (location.Contains("("))
-                        {
-                            string quantityInfo = location.Substring(
-                                location.IndexOf("(") + 1,
-                                location.IndexOf(")") - location.IndexOf("(") - 1
-                            );
-
-                            foreach (string quantityPair in quantityInfo.Split('|'))
+                            string qualityInfo = location.Substring(openParen + 1, closeParen - openParen - 1);
+                            foreach (string q in qualityInfo.Split('|'))
                             {
-                                string[] parts = quantityPair.Trim().Split(':');
-                                if (parts.Length == 2 && int.TryParse(parts[0], out int quantity))
+                                var parts = q.Split(':');
+                                if (parts.Length == 2)
                                 {
-                                    // Draw quantity
-                                    string quantityText = quantity.ToString();
-                                    b.DrawString(Game1.smallFont, quantityText,
-                                        new Vector2(currentX, textPos.Y), textColor);
-                                    currentX += Game1.smallFont.MeasureString(quantityText).X + 5;
-
-                                    // Draw quality icon
-                                    if (int.TryParse(parts[1], out int quality) && quality > 0)
+                                    string quantity = parts[0];
+                                    if (int.TryParse(parts[1], out int quality))
                                     {
-                                        DrawQualityIcon(b, quality, new Vector2(currentX, textPos.Y));
-                                        currentX += 20;
+                                        string quantityText = $"x{quantity}";
+                                        b.DrawString(Game1.smallFont, quantityText, new Vector2(currentX, textPos.Y), textColor);
+                                        currentX += Game1.smallFont.MeasureString(quantityText).X + 5;
+
+                                        if (quality > 0)
+                                        {
+                                            this.DrawQualityIcon(b, quality, new Vector2(currentX, textPos.Y + 2));
+                                            currentX += 20;
+                                        }
+                                        currentX += 10;
                                     }
-                                    currentX += 15; // Space between quality indicators
                                 }
                             }
-                        }
 
-                        // Draw total if present
-                        if (location.Contains("[Total:"))
-                        {
-                            string totalText = location.Substring(
-                                location.LastIndexOf("["),
-                                location.LastIndexOf("]") - location.LastIndexOf("[") + 1
-                            );
-                            float totalWidth = Game1.smallFont.MeasureString(totalText).X;
-                            b.DrawString(Game1.smallFont, totalText,
-                                new Vector2(this.xPositionOnScreen + this.width - 60 - totalWidth, textPos.Y),
-                                new Color(103, 152, 235));
+                            if (location.Contains("["))
+                            {
+                                string totalText = location.Substring(location.IndexOf("["));
+                                b.DrawString(Game1.smallFont, totalText, new Vector2(currentX, textPos.Y), new Color(110, 110, 110));
+                            }
                         }
                     }
-                    textPos.Y += Game1.smallFont.MeasureString(location).Y + 5;
                 }
+                textPos.Y += Game1.smallFont.MeasureString(location).Y + 5;
             }
 
-            textPos.Y += 15; // Extra spacing after locations
-            //b.DrawString(Game1.smallFont, obtainLine, textPos, textColor);
-            //textPos.Y += Game1.smallFont.MeasureString(descLine).Y + 30;
-
-            // Draw close button
-            b.Draw(Game1.mouseCursors,
+            // Draw Close Button (X)
+            b.Draw(
+                Game1.mouseCursors,
                 new Vector2(this.closeButton.X, this.closeButton.Y),
-                new Rectangle(337, 494, 9, 9),  // Texture region for the X button
+                new Rectangle(337, 494, 9, 9),
                 Color.White,
                 0f,
                 Vector2.Zero,
-                4f,                            // Larger scale for better visibility
+                4f,
                 SpriteEffects.None,
-                1f);
+                1f
+            );
 
-            // Draw find button
+            // Draw Find Button
             IClickableMenu.drawTextureBox(
                 b,
                 Game1.menuTexture,
@@ -308,52 +291,51 @@ namespace Find_Item
                 this.findButton.Height,
                 Color.White,
                 1f,
-                true);  // Enable shadow for better visibility
+                true
+            );
 
-            // Draw button text with bigger font
-            Vector2 findTextSize = Game1.dialogueFont.MeasureString(FindButtonText); // Use larger dialogue font
+            string findButtonText = ModEntry.I18n("detail.find-button");
+            Vector2 findTextSize = Game1.smallFont.MeasureString(findButtonText);
             Vector2 findTextPos = new Vector2(
                 this.findButton.X + (this.findButton.Width - findTextSize.X) / 2,
                 this.findButton.Y + (this.findButton.Height - findTextSize.Y) / 2
             );
+
             b.DrawString(
-                Game1.dialogueFont,  // Use larger dialogue font instead of smallFont
-                FindButtonText,
+                Game1.smallFont,
+                findButtonText,
                 findTextPos,
                 Color.Black
             );
 
-            // Add hover effect
+            // Button hover effect
             if (this.findButton.Contains(Game1.getMouseX(), Game1.getMouseY()))
             {
-                // Draw highlight effect when mouse hovers over button
-                b.Draw(
-                    Game1.staminaRect,
-                    this.findButton,
-                    Color.White * 0.15f
-                );
+                b.Draw(Game1.staminaRect, this.findButton, Color.White * 0.18f);
             }
 
-            // Draw the mouse cursor.
             this.drawMouse(b);
         }
 
         public override void receiveKeyPress(Keys key)
         {
-            if (key == Keys.Escape && readyToClose)
-                this.exitThisMenu();
-            else if (ModEntry.Config != null && key.ToString() == ModEntry.Config.QuickSearchKey.ToString())
+            if ((key == Keys.Escape || key == Keys.Back) && this.readyToClose)
+            {
+                // Return to search menu
+                Game1.playSound("bigDeSelect");
+                Game1.activeClickableMenu = new ItemSearchMenu(this.allSubjects, this.onSelect);
+            }
+            else if (ModEntry.Config != null && key == (Keys)ModEntry.Config.QuickSearchKey)
             {
                 this.exitThisMenu();
-                DrawPathToChests();
+                this.DrawPathToChests();
             }
-            // Update hide path key handler to use config
-            else if (ModEntry.Config != null && key.ToString() == ModEntry.Config.HidePathKey.ToString())
+            else if (ModEntry.Config != null && key == (Keys)ModEntry.Config.HidePathKey)
             {
                 ModEntry.shouldDraw = false;
                 ModEntry.paths.Clear();
                 ModEntry.pathColors.Clear();
-                Game1.showGlobalMessage("Path hidden"); // Optional feedback
+                Game1.showGlobalMessage(ModEntry.I18n("message.path-hidden"));
             }
         }
 
@@ -373,22 +355,16 @@ namespace Find_Item
                 if (playSound)
                     Game1.playSound("select");
 
-                // Close menu first
                 this.exitThisMenu();
-
-                // Then draw paths to chests
-                DrawPathToChests();
+                this.DrawPathToChests();
                 return;
             }
 
-            //// If clicked outside buttons then exit as usual
-            //this.exitThisMenu();
-            //base.receiveLeftClick(x, y, playSound);
+            base.receiveLeftClick(x, y, playSound);
         }
 
         public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
         {
-            // Create a new instance of the menu with the same item and settings
             Game1.activeClickableMenu = new ItemDetailMenu(this.item, this.allSubjects, this.onSelect);
         }
 
@@ -401,13 +377,12 @@ namespace Find_Item
             Dictionary<string, int> containerCounts = new Dictionary<string, int>();
             int grandTotal = 0;
 
-            // Check player's inventory first
+            // Check player's inventory first (direct items)
             var inventoryGroups = Game1.player.Items
-                .Where(i => ItemsMatch(i, item))
+                .Where(i => this.ItemsMatch(i, item))
                 .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
                 .OrderBy(g => g.Key);
 
-            // If item is in inventory, return early with a special message
             if (inventoryGroups.Any())
             {
                 var quantities = new List<string>();
@@ -416,57 +391,91 @@ namespace Find_Item
                 {
                     int total = group.Sum(i => i.Stack);
                     inventoryTotal += total;
-                    quantities.Add($"{total}:{group.Key}"); // Format: "quantity:quality"
+                    quantities.Add($"{total}:{group.Key}");
                 }
                 grandTotal += inventoryTotal;
-                locations.Add($"Your Inventory: ({string.Join("|", quantities)}) [Total: {inventoryTotal}]");
+                string inventoryName = ModEntry.I18n("detail.inventory");
+                string totalStr = ModEntry.I18n("detail.total", inventoryTotal);
+                locations.Add($"{inventoryName}: ({string.Join("|", quantities)}) {totalStr}");
+            }
+
+            // Check player's inventory bags (ItemBags mod support)
+            var invBagItems = ItemBagHelper.GetItemsInsideBags(Game1.player.Items);
+            var invBagGroups = invBagItems
+                .Where(b => this.ItemsMatch(b.Item, item))
+                .GroupBy(b => b.BagPath);
+
+            foreach (var bagGroup in invBagGroups)
+            {
+                string bagName = bagGroup.Key;
+                var qualityGroups = bagGroup
+                    .GroupBy(b => (b.Item as StardewValley.Object)?.Quality ?? -1)
+                    .OrderBy(g => g.Key);
+
+                var quantities = new List<string>();
+                int bagTotal = 0;
+                foreach (var group in qualityGroups)
+                {
+                    int total = group.Sum(b => b.Item.Stack);
+                    bagTotal += total;
+                    quantities.Add($"{total}:{group.Key}");
+                }
+
+                grandTotal += bagTotal;
+                string inventoryName = ModEntry.I18n("detail.inventory");
+                string totalStr = ModEntry.I18n("detail.total", bagTotal);
+                locations.Add($"{inventoryName} ({bagName}): ({string.Join("|", quantities)}) {totalStr}");
             }
 
             // Helper method to process location's chests
             void ProcessLocationChests(GameLocation location, string locationPrefix = "", string buildingName = "")
             {
-                // Get cabin name if this is a cabin
                 string cabinName = "";
                 if (location is StardewValley.Locations.Cabin cabin)
                 {
-                    cabinName = GetCabinOwnerName(cabin);
+                    cabinName = this.GetCabinOwnerName(cabin);
                 }
 
                 foreach (var obj in location.objects.Values)
                 {
-                    if (obj is Chest chest)
+                    Chest? targetChest = obj as Chest;
+                    string containerTitle = obj.DisplayName;
+
+                    // Support Auto-Grabbers
+                    if (targetChest == null && obj.heldObject.Value is Chest grabberChest)
                     {
-                        var chestGroups = chest.Items
-                            .Where(i => ItemsMatch(i, item))
+                        targetChest = grabberChest;
+                        containerTitle = $"{obj.DisplayName} ({grabberChest.DisplayName})";
+                    }
+
+                    if (targetChest?.Items != null)
+                    {
+                        string containerKey;
+                        if (!string.IsNullOrEmpty(cabinName))
+                        {
+                            containerKey = ModEntry.I18n("detail.container-in", containerTitle, cabinName);
+                        }
+                        else if (!string.IsNullOrEmpty(buildingName))
+                        {
+                            containerKey = ModEntry.I18n("detail.container-in", containerTitle, buildingName);
+                        }
+                        else if (!string.IsNullOrEmpty(locationPrefix))
+                        {
+                            containerKey = ModEntry.I18n("detail.container-in", containerTitle, $"{locationPrefix}{location.DisplayName}");
+                        }
+                        else
+                        {
+                            containerKey = ModEntry.I18n("detail.container-in", containerTitle, location.DisplayName);
+                        }
+
+                        // 1. Check direct items in chest
+                        var chestGroups = targetChest.Items
+                            .Where(i => this.ItemsMatch(i, item))
                             .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
                             .OrderBy(g => g.Key);
 
                         if (chestGroups.Any())
                         {
-                            // Customize container key based on building type
-                            string containerKey;
-                            if (!string.IsNullOrEmpty(cabinName))
-                            {
-                                // For cabin
-                                containerKey = $"{chest.DisplayName} in {cabinName}";
-                            }
-                            else if (!string.IsNullOrEmpty(buildingName))
-                            {
-                                // For buildings in farm
-                                containerKey = $"{chest.DisplayName} in {buildingName}";
-                            }
-                            else if (!string.IsNullOrEmpty(locationPrefix))
-                            {
-                                // For other prefixed locations
-                                containerKey = $"{chest.DisplayName} in {locationPrefix}{location.DisplayName}";
-                            }
-                            else
-                            {
-                                // For regular locations
-                                containerKey = $"{chest.DisplayName} in {location.DisplayName}";
-                            }
-
-                            // Rest of the chest processing code...
                             var quantities = new List<string>();
                             int containerTotal = 0;
 
@@ -478,7 +487,8 @@ namespace Find_Item
                             }
 
                             grandTotal += containerTotal;
-                            string locationText = $"{containerKey}: ({string.Join("|", quantities)}) [Total: {containerTotal}]";
+                            string totalLabel = ModEntry.I18n("detail.total", containerTotal);
+                            string locationText = $"{containerKey}: ({string.Join("|", quantities)}) {totalLabel}";
 
                             if (!containerCounts.ContainsKey(containerKey))
                             {
@@ -488,7 +498,48 @@ namespace Find_Item
                             else
                             {
                                 containerCounts[containerKey]++;
-                                locations.Add($"{locationText} [Storage #{containerCounts[containerKey]}]");
+                                string storageNum = ModEntry.I18n("detail.storage-num", containerCounts[containerKey]);
+                                locations.Add($"{locationText} {storageNum}");
+                            }
+                        }
+
+                        // 2. Check items inside any ItemBag in chest (ItemBags mod support)
+                        var chestBagItems = ItemBagHelper.GetItemsInsideBags(targetChest.Items);
+                        var chestBagGroups = chestBagItems
+                            .Where(b => this.ItemsMatch(b.Item, item))
+                            .GroupBy(b => b.BagPath);
+
+                        foreach (var bagGroup in chestBagGroups)
+                        {
+                            string bagContainerKey = $"{containerKey} ({bagGroup.Key})";
+                            var qualityGroups = bagGroup
+                                .GroupBy(b => (b.Item as StardewValley.Object)?.Quality ?? -1)
+                                .OrderBy(g => g.Key);
+
+                            var quantities = new List<string>();
+                            int bagTotal = 0;
+
+                            foreach (var group in qualityGroups)
+                            {
+                                int total = group.Sum(b => b.Item.Stack);
+                                bagTotal += total;
+                                quantities.Add($"{total}:{group.Key}");
+                            }
+
+                            grandTotal += bagTotal;
+                            string totalLabel = ModEntry.I18n("detail.total", bagTotal);
+                            string locationText = $"{bagContainerKey}: ({string.Join("|", quantities)}) {totalLabel}";
+
+                            if (!containerCounts.ContainsKey(bagContainerKey))
+                            {
+                                containerCounts[bagContainerKey] = 1;
+                                locations.Add(locationText);
+                            }
+                            else
+                            {
+                                containerCounts[bagContainerKey]++;
+                                string storageNum = ModEntry.I18n("detail.storage-num", containerCounts[bagContainerKey]);
+                                locations.Add($"{locationText} {storageNum}");
                             }
                         }
                     }
@@ -498,26 +549,27 @@ namespace Find_Item
             // Helper method to check fridges
             void CheckFridge(GameLocation location, string locationPrefix = "", string buildingName = "")
             {
-                if (location is StardewValley.Locations.FarmHouse || location is StardewValley.Locations.Cabin)
+                if (location is StardewValley.Locations.FarmHouse house)
                 {
-                    Chest fridge = null;
-                    string locationName = "";
+                    Chest? fridge = house.fridge.Value;
+                    string locationName;
 
                     if (location is StardewValley.Locations.Cabin cabin)
                     {
-                        locationName = GetCabinOwnerName(cabin);
-                        fridge = cabin.fridge.Value;
+                        locationName = this.GetCabinOwnerName(cabin);
                     }
-                    else if (location is StardewValley.Locations.FarmHouse)
+                    else
                     {
                         locationName = !string.IsNullOrEmpty(buildingName) ? buildingName : "Farmhouse";
-                        fridge = (location as StardewValley.Locations.FarmHouse).fridge.Value;
                     }
 
                     if (fridge?.Items != null)
                     {
+                        string fridgeTitle = ModEntry.I18n("detail.fridge-in", locationName);
+
+                        // 1. Direct items in fridge
                         var fridgeGroups = fridge.Items
-                            .Where(i => ItemsMatch(i, item))
+                            .Where(i => this.ItemsMatch(i, item))
                             .GroupBy(i => (i as StardewValley.Object)?.Quality ?? -1)
                             .OrderBy(g => g.Key);
 
@@ -534,7 +586,36 @@ namespace Find_Item
                             }
 
                             grandTotal += fridgeTotal;
-                            locations.Add($"Fridge in {locationName}: ({string.Join("|", quantities)}) [Total: {fridgeTotal}]");
+                            string totalLabel = ModEntry.I18n("detail.total", fridgeTotal);
+                            locations.Add($"{fridgeTitle}: ({string.Join("|", quantities)}) {totalLabel}");
+                        }
+
+                        // 2. Check items inside any ItemBag in fridge (ItemBags mod support)
+                        var fridgeBagItems = ItemBagHelper.GetItemsInsideBags(fridge.Items);
+                        var fridgeBagGroups = fridgeBagItems
+                            .Where(b => this.ItemsMatch(b.Item, item))
+                            .GroupBy(b => b.BagPath);
+
+                        foreach (var bagGroup in fridgeBagGroups)
+                        {
+                            string bagFridgeTitle = $"{fridgeTitle} ({bagGroup.Key})";
+                            var qualityGroups = bagGroup
+                                .GroupBy(b => (b.Item as StardewValley.Object)?.Quality ?? -1)
+                                .OrderBy(g => g.Key);
+
+                            var quantities = new List<string>();
+                            int bagTotal = 0;
+
+                            foreach (var group in qualityGroups)
+                            {
+                                int total = group.Sum(b => b.Item.Stack);
+                                bagTotal += total;
+                                quantities.Add($"{total}:{group.Key}");
+                            }
+
+                            grandTotal += bagTotal;
+                            string totalLabel = ModEntry.I18n("detail.total", bagTotal);
+                            locations.Add($"{bagFridgeTitle}: ({string.Join("|", quantities)}) {totalLabel}");
                         }
                     }
                 }
@@ -545,10 +626,8 @@ namespace Find_Item
             {
                 if (location is Farm farm)
                 {
-                    // Process main farm location
                     ProcessLocationChests(farm);
 
-                    // Process each building on the farm
                     foreach (var building in farm.buildings)
                     {
                         if (building.indoors.Value != null)
@@ -561,80 +640,31 @@ namespace Find_Item
                 }
                 else
                 {
-                    // Process regular location (including cabins)
                     ProcessLocationChests(location);
                     CheckFridge(location);
                 }
             }
 
             if (locations.Count == 0)
-                return "Item not found in any storage";
+                return ModEntry.I18n("detail.not-found-storage");
 
-            // Sort locations for better organization
             locations.Sort();
-
-            // Add grand total at the beginning
-            locations.Insert(0, $"Grand Total: {grandTotal} items");
+            locations.Insert(0, ModEntry.I18n("detail.grand-total", grandTotal));
             return string.Join("\n", locations);
         }
 
-        private bool HasItemInLocation(GameLocation location, Item searchItem)
-        {
-            // Check chests in the main location
-            foreach (var obj in location.objects.Values)
-            {
-                if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
-                    return true;
-            }
-
-            // Check fridge
-            if (location is StardewValley.Locations.FarmHouse house)
-            {
-                if (house.fridge.Value?.Items != null &&
-                    house.fridge.Value.Items.Any(i => ItemsMatch(i, searchItem)))
-                    return true;
-            }
-
-            // If it's a farm, check all buildings
-            if (location is Farm farm)
-            {
-                foreach (var building in farm.buildings)
-                {
-                    if (building.indoors.Value != null)
-                    {
-                        // Check chests in the building
-                        foreach (var obj in building.indoors.Value.objects.Values)
-                        {
-                            if (obj is Chest chest && chest.Items.Any(i => ItemsMatch(i, searchItem)))
-                                return true;
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Compares two items to determine if they are the same type and have the same basic properties.
-        /// </summary>
         private bool ItemsMatch(Item item1, Item item2)
         {
             if (item1 == null || item2 == null)
                 return false;
 
-            // Compare basic properties
-            bool basicMatch = item1.Name == item2.Name &&
-                             item1.DisplayName == item2.DisplayName;
+            bool basicMatch = item1.Name == item2.Name && item1.DisplayName == item2.DisplayName;
 
-            // Compare detailed properties for StardewValley.Object
             if (item1 is StardewValley.Object obj1 && item2 is StardewValley.Object obj2)
             {
-                return basicMatch &&
-                       obj1.ParentSheetIndex == obj2.ParentSheetIndex; // Removed Quality comparison
+                return basicMatch && obj1.ParentSheetIndex == obj2.ParentSheetIndex;
             }
 
-            // Special comparison for other item types
             if (item1.GetType() != item2.GetType())
                 return false;
 
@@ -642,107 +672,126 @@ namespace Find_Item
         }
 
         /// <summary>
-        /// Returns a string representation of the item's quality.
-        /// </summary>
-        private string GetQualityText(int quality)
-        {
-            return quality switch
-            {
-                0 => "Normal",
-                1 => "Silver",
-                2 => "Gold",
-                4 => "Iridium",
-                _ => ""
-            };
-        }
-
-        /// <summary>
         /// Draws paths to chests containing the selected item in the current location.
         /// </summary>
         private void DrawPathToChests()
         {
-
-
             GameLocation currentLocation = Game1.currentLocation;
             List<Vector2> chestLocations = new List<Vector2>();
             List<string> containerDetails = new List<string>();
 
-            // Check if item is in inventory first
-            if (Game1.player.Items.Any(i => ItemsMatch(i, item)))
+            // Check if item is in inventory first (direct or inside Item Bags)
+            bool inInvDirect = Game1.player.Items.Any(i => this.ItemsMatch(i, this.item));
+            var invBagItems = ItemBagHelper.GetItemsInsideBags(Game1.player.Items)
+                .Where(b => this.ItemsMatch(b.Item, this.item))
+                .ToList();
+
+            if (inInvDirect || invBagItems.Any())
             {
-                containerDetails.Add("your inventory");
+                string invTitle = ModEntry.I18n("detail.inventory");
+                if (invBagItems.Any())
+                {
+                    string bagNames = string.Join(", ", invBagItems.Select(b => b.BagPath).Distinct());
+                    invTitle = $"{invTitle} ({bagNames})";
+                }
+                containerDetails.Add(invTitle);
             }
-            // Function to check location and its containers
+
             void CheckLocationContainers(GameLocation location, string locationPrefix = "")
             {
-                // Get cabin name if this is a cabin
                 string cabinName = "";
-                if (location is StardewValley.Locations.Cabin currentCabin) // Changed 'cabin' to 'currentCabin'
+                if (location is StardewValley.Locations.Cabin currentCabin)
                 {
-                    cabinName = GetCabinOwnerName(currentCabin);
+                    cabinName = this.GetCabinOwnerName(currentCabin);
                 }
 
-                // Check regular chests
+                // Check objects (chests & auto-grabbers)
                 foreach (var obj in location.objects.Pairs)
                 {
-                    if (obj.Value is Chest chest && chest.Items.Any(i => ItemsMatch(i, item)))
+                    Chest? targetChest = obj.Value as Chest;
+                    string containerTitle = obj.Value.DisplayName;
+
+                    if (targetChest == null && obj.Value.heldObject.Value is Chest grabberChest)
                     {
-                        if (location == currentLocation)
+                        targetChest = grabberChest;
+                        containerTitle = $"{obj.Value.DisplayName} ({grabberChest.DisplayName})";
+                    }
+
+                    if (targetChest?.Items != null)
+                    {
+                        bool directMatch = targetChest.Items.Any(i => this.ItemsMatch(i, this.item));
+                        var matchingBags = ItemBagHelper.GetItemsInsideBags(targetChest.Items)
+                            .Where(b => this.ItemsMatch(b.Item, this.item))
+                            .ToList();
+
+                        if (directMatch || matchingBags.Any())
                         {
-                            chestLocations.Add(obj.Key);
-                            // Add cabin name to the container details if in a cabin
-                            string containerName = !string.IsNullOrEmpty(cabinName)
-                                ? $"{chest.DisplayName} in {cabinName}"
-                                : $"{chest.DisplayName}";
-                            containerDetails.Add(containerName);
-                        }
-                        else
-                        {
-                            string locName;
-                            if (!string.IsNullOrEmpty(cabinName))
+                            string finalTitle = containerTitle;
+                            if (matchingBags.Any())
                             {
-                                locName = cabinName;
+                                string bagNames = string.Join(", ", matchingBags.Select(b => b.BagPath).Distinct());
+                                finalTitle = $"{finalTitle} ({bagNames})";
+                            }
+
+                            if (location == currentLocation)
+                            {
+                                chestLocations.Add(obj.Key);
+                                string containerName = !string.IsNullOrEmpty(cabinName)
+                                    ? ModEntry.I18n("detail.container-in", finalTitle, cabinName)
+                                    : finalTitle;
+                                containerDetails.Add(containerName);
                             }
                             else
                             {
-                                locName = !string.IsNullOrEmpty(locationPrefix)
-                                    ? $"{locationPrefix} {location.DisplayName}"
-                                    : location.DisplayName;
+                                string locName;
+                                if (!string.IsNullOrEmpty(cabinName))
+                                {
+                                    locName = cabinName;
+                                }
+                                else
+                                {
+                                    locName = !string.IsNullOrEmpty(locationPrefix)
+                                        ? $"{locationPrefix} {location.DisplayName}"
+                                        : location.DisplayName;
+                                }
+                                containerDetails.Add(ModEntry.I18n("detail.container-in", finalTitle, locName));
                             }
-                            containerDetails.Add($"{chest.DisplayName} in {locName}");
                         }
                     }
                 }
 
+                // Check fridge in farmhouse or cabin
+                if (location is StardewValley.Locations.FarmHouse house)
+                {
+                    if (house.fridge.Value?.Items != null)
+                    {
+                        bool directMatch = house.fridge.Value.Items.Any(i => this.ItemsMatch(i, this.item));
+                        var matchingBags = ItemBagHelper.GetItemsInsideBags(house.fridge.Value.Items)
+                            .Where(b => this.ItemsMatch(b.Item, this.item))
+                            .ToList();
 
-                if (location is StardewValley.Locations.Cabin cabinWithFridge)
-                {
-                    if (cabinWithFridge.fridge.Value?.Items != null &&
-                        cabinWithFridge.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
-                    {
-                        string cabinOwnerName = GetCabinOwnerName(cabinWithFridge);
-                        if (location == currentLocation)
+                        if (directMatch || matchingBags.Any())
                         {
-                            containerDetails.Add($"Fridge in {cabinOwnerName}");
-                        }
-                        else
-                        {
-                            containerDetails.Add($"Fridge in {cabinOwnerName}");
-                        }
-                    }
-                }
-                else if (location is StardewValley.Locations.FarmHouse house)
-                {
-                    if (house.fridge.Value?.Items != null &&
-                        house.fridge.Value.Items.Any(i => ItemsMatch(i, item)))
-                    {
-                        if (location == currentLocation)
-                        {
-                            containerDetails.Add($"Fridge in Farmhouse");
-                        }
-                        else
-                        {
-                            containerDetails.Add($"Fridge in Farmhouse");
+                            string locationName = location is StardewValley.Locations.Cabin c ? this.GetCabinOwnerName(c) : "Farmhouse";
+                            string fridgeTitle = ModEntry.I18n("detail.fridge-in", locationName);
+                            if (matchingBags.Any())
+                            {
+                                string bagNames = string.Join(", ", matchingBags.Select(b => b.BagPath).Distinct());
+                                fridgeTitle = $"{fridgeTitle} ({bagNames})";
+                            }
+
+                            if (location == currentLocation)
+                            {
+                                if (house.fridgePosition != Point.Zero)
+                                {
+                                    chestLocations.Add(new Vector2(house.fridgePosition.X, house.fridgePosition.Y));
+                                }
+                                containerDetails.Add(fridgeTitle);
+                            }
+                            else
+                            {
+                                containerDetails.Add(fridgeTitle);
+                            }
                         }
                     }
                 }
@@ -770,15 +819,13 @@ namespace Find_Item
                 {
                     if (location == currentLocation) continue;
 
-                    // Check regular locations
                     if (!(location is Farm))
                     {
                         CheckLocationContainers(location);
                     }
-                    // Check Farm and its buildings
                     else
                     {
-                        Farm otherFarm = location as Farm;
+                        Farm otherFarm = (Farm)location;
                         CheckLocationContainers(otherFarm);
 
                         foreach (var building in otherFarm.buildings)
@@ -791,15 +838,14 @@ namespace Find_Item
                     }
                 }
 
-                // Show detailed message about where items were found
                 if (containerDetails.Count > 0)
                 {
                     string locationList = string.Join("\n", containerDetails);
-                    Game1.showGlobalMessage($"{item.DisplayName} can be found in:\n{locationList}");
+                    Game1.showGlobalMessage(ModEntry.I18n("message.found-in-locations", this.item.DisplayName, locationList));
                 }
                 else
                 {
-                    Game1.showGlobalMessage($"{item.DisplayName} is not found in any location");
+                    Game1.showGlobalMessage(ModEntry.I18n("message.not-found", this.item.DisplayName));
                 }
                 return;
             }
@@ -815,30 +861,18 @@ namespace Find_Item
             if (ModEntry.paths.Count > 0)
             {
                 string details = string.Join("\n", containerDetails);
-                Game1.showGlobalMessage($"Found {item.DisplayName} in {chestLocations.Count} container(s):\n{details}");
-
-                if (ModEntry.Config.AutoHidePaths)
-                {
-                    Task.Delay(ModEntry.Config.AutoHideDelay * 1000).ContinueWith(_ =>
-                    {
-                        ModEntry.shouldDraw = false;
-                        ModEntry.paths.Clear();
-                        ModEntry.pathColors.Clear();
-                    });
-                }
+                Game1.showGlobalMessage(ModEntry.I18n("message.found-in-containers", this.item.DisplayName, chestLocations.Count, details));
+                ModEntry.SchedulePathAutoHide();
             }
             else
             {
-                Game1.showGlobalMessage($"Cannot find path to {item.DisplayName} in {currentLocation.Name}");
+                Game1.showGlobalMessage(ModEntry.I18n("message.cannot-find-path", this.item.DisplayName, currentLocation.Name));
             }
         }
 
-        /// <summary>
-        /// Draws the quality icon for an item
-        /// </summary>
         private void DrawQualityIcon(SpriteBatch b, int quality, Vector2 position)
         {
-            if (quality <= 0) return; // Don't draw anything for normal quality
+            if (quality <= 0) return;
 
             Rectangle qualityRect;
             switch (quality)
@@ -859,23 +893,17 @@ namespace Find_Item
             b.Draw(Game1.mouseCursors, position, qualityRect, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 1f);
         }
 
-        /// <summary>
-        /// Gets the formatted cabin owner name.
-        /// </summary>
-        /// <param name="cabin">The cabin to get the owner name from.</param>
-        /// <returns>Formatted string like "OwnerName's Cabin"</returns>
         private string GetCabinOwnerName(StardewValley.Locations.Cabin cabin)
         {
-            if (cabin == null) return "Unknown Cabin";
+            if (cabin == null) return "Cabin";
 
             string ownerName;
-            if (cabin.owner != null)
+            if (cabin.owner != null && !string.IsNullOrEmpty(cabin.owner.Name))
             {
                 ownerName = cabin.owner.Name;
             }
             else
             {
-                // Try to get name from cabin's name
                 ownerName = cabin.NameOrUniqueName.Split(' ')[0];
             }
             return $"{ownerName}'s Cabin";

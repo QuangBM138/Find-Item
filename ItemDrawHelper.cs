@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewValley;
 
@@ -6,7 +6,7 @@ namespace Find_Item.Utilities // Using the namespace provided by the user
 {
     public static class ItemDrawHelper
     {
-        public static void DrawItemIcon(SpriteBatch b, Item item, Vector2 position, float scale)
+        public static void DrawItemIcon(SpriteBatch b, Item item, Vector2 position, float scale, StackDrawType stackDrawType = StackDrawType.Hide)
         {
             if (item == null)
                 return;
@@ -63,7 +63,7 @@ namespace Find_Item.Utilities // Using the namespace provided by the user
                 // So, we need to convert: drawInMenu_scale = passed_scale / (64px / 16px).
                 // Game1.pixelZoom is typically this factor (e.g., 4).
                 float drawInMenuScale = scale / Game1.pixelZoom;
-                obj.drawInMenu(b, position, drawInMenuScale, 1f, 1f, StackDrawType.Draw, Color.White, true);
+                obj.drawInMenu(b, position, drawInMenuScale, 1f, 1f, stackDrawType, Color.White, true);
             }
             else
             {
@@ -71,7 +71,7 @@ namespace Find_Item.Utilities // Using the namespace provided by the user
                 // Most Item subclasses implement drawInMenu, which is a more robust way to draw them.
                 // The scale conversion is the same as for StardewValley.Object.
                 float drawInMenuScale = scale / Game1.pixelZoom;
-                item.drawInMenu(b, position, drawInMenuScale, 1f, 1f, StackDrawType.Draw, Color.White, true);
+                item.drawInMenu(b, position, drawInMenuScale, 1f, 1f, stackDrawType, Color.White, true);
             }
         }
 

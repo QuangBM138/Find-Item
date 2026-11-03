@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using StardewValley;
 using System;
 using System.Collections.Generic;
@@ -33,6 +33,9 @@ namespace Find_Item
 
         private static List<Vector2> FindPath(GameLocation location, Vector2 start, Vector2 end)
         {
+            if (start == end)
+                return new List<Vector2> { end };
+
             var openSet = new List<Vector2> { start };
             var closedSet = new HashSet<Vector2>();
             var cameFrom = new Dictionary<Vector2, Vector2>();
@@ -42,7 +45,11 @@ namespace Find_Item
             gScore[start] = 0;
             fScore[start] = ManhattanDistance(start, end);
 
-            while (openSet.Count > 0)
+            // Limit iterations to prevent freezing on very large maps or unreachable targets
+            int maxIterations = 5000;
+            int iterations = 0;
+
+            while (openSet.Count > 0 && iterations++ < maxIterations)
             {
                 Vector2 current = GetLowestFScore(openSet, fScore);
                 if (current == end)
@@ -51,7 +58,7 @@ namespace Find_Item
                 openSet.Remove(current);
                 closedSet.Add(current);
 
-                foreach (Vector2 neighbor in GetValidNeighbors(location, current))
+                foreach (Vector2 neighbor in GetValidNeighbors(location, current, end))
                 {
                     if (closedSet.Contains(neighbor))
                         continue;
@@ -79,9 +86,9 @@ namespace Find_Item
 
             foreach (Vector2 node in openSet)
             {
-                if (fScore.ContainsKey(node) && fScore[node] < lowestF)
+                if (fScore.TryGetValue(node, out float score) && score < lowestF)
                 {
-                    lowestF = fScore[node];
+                    lowestF = score;
                     lowestNode = node;
                 }
             }
@@ -89,7 +96,7 @@ namespace Find_Item
             return lowestNode;
         }
 
-        private static List<Vector2> GetValidNeighbors(GameLocation location, Vector2 pos)
+        private static List<Vector2> GetValidNeighbors(GameLocation location, Vector2 pos, Vector2 target)
         {
             var neighbors = new List<Vector2>();
             Vector2[] directions = new[]
@@ -103,7 +110,8 @@ namespace Find_Item
             foreach (Vector2 dir in directions)
             {
                 Vector2 newPos = pos + dir;
-                if (IsWalkable(location, newPos))
+                // Allow the target tile (e.g. chest or fridge) even if it's technically impassable to stand on
+                if (newPos == target || IsWalkable(location, newPos))
                     neighbors.Add(newPos);
             }
 

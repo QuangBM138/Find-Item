@@ -1,14 +1,14 @@
 {
   "Name": "Find Item",
   "Author": "ogahalo00",
-  "Version": "1.2.0",
+  "Version": "1.2.1",
   "Description": "Helps find items in chests and inventories",
   "UniqueID": "ogahlo00.Find_Item",
   "EntryDll": "Find_Item.dll",
   "MinimumApiVersion": "4.0.0",
   "UpdateKeys": [
     "GitHub:QuangBM138/Find-Item",
-    "Nexus:34024",
+    "Nexus:34024"
   ],
   "Dependencies": [
     {

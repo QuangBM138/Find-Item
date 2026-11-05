@@ -1,4 +1,6 @@
 {
+  "find-item.menu.title": "物品查找",
+  "find-item.title": "物品查找",
   "config.mod-enabled.name": "启用模组",
   "config.mod-enabled.desc": "启用或禁用 Find Item（物品查找）模组功能。",
   "config.toggle-key.name": "模组开关快捷键",
